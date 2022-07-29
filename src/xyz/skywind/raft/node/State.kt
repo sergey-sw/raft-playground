@@ -3,7 +3,6 @@ package xyz.skywind.raft.node
 data class State(
         val term: Term,
         val vote: NodeID?,
-        val data: String,
         val role: Role,
         val leader: NodeID?,
         val lastLeaderHeartbeatTs: Long,
@@ -14,12 +13,11 @@ data class State(
         operator fun invoke(s: State,
                             term: Term = s.term,
                             vote: NodeID? = s.vote,
-                            data: String = s.data,
                             role: Role = s.role,
                             leader: NodeID? = s.leader,
                             lastLeaderHeartbeatTs: Long = s.lastLeaderHeartbeatTs,
                             followers: Set<NodeID> = s.followers): State {
-            return State(term, vote, data, role, leader, lastLeaderHeartbeatTs, followers)
+            return State(term, vote, role, leader, lastLeaderHeartbeatTs, followers)
         }
     }
 
@@ -44,6 +42,10 @@ data class State(
     }
 
     fun votedInThisTerm(t: Term): Boolean {
-        return term.num == t.num && vote != null
+        return this.term.num == t.num && vote != null
+    }
+
+    fun canAcceptTerm(t: Term) : Boolean {
+        return this.term.num <= t.num
     }
 }
