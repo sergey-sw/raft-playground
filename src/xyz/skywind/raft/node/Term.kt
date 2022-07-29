@@ -11,11 +11,11 @@ data class Term(val num: Long) {
         return num.compareTo(term.num)
     }
 
-    fun incr(): Term {
+    fun inc(): Term {
         return Term(num + 1)
     }
 
-    fun decr(): Term {
-        return Term(num - 1)
+    override fun toString(): String {
+        return num.toString()
     }
 }

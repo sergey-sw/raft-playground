@@ -53,14 +53,17 @@ object ModelTest {
     }
 
     private fun testState() {
-        State(Term(1), "123", Role.FOLLOWER, null, 0, setOf())
-        State(Term(1), "123", Role.CANDIDATE, null, 0, setOf(NodeID("1")))
-        State(Term(1), "123", Role.LEADER, null, 0, setOf(NodeID("1"), NodeID("2"), NodeID("3")))
+        State(Term(1), null, "123", Role.FOLLOWER, null, 0, setOf())
+        State(Term(1), NodeID("1"), "123", Role.CANDIDATE, null, 0, setOf(NodeID("1")))
+        State(Term(1), NodeID("1"), "123", Role.LEADER, null, 0, setOf(NodeID("1"), NodeID("2"), NodeID("3")))
 
         testFollowerHasFollowers()
         testCandidateFollowsSelf()
         testLeaderFollowsSelf()
         testLeaderIsFollowed()
+
+        testCandidateVotesSelf()
+        testLeaderVotesSelf()
 
         testLeaderHasCorrectTerm()
         testCandidateHasCorrectTerm()
@@ -71,7 +74,7 @@ object ModelTest {
 
     private fun testFollowerHasFollowers() {
         try {
-            State(Term(1), "123", Role.FOLLOWER, null, 0, setOf(NodeID("1")))
+            State(Term(1), null, "123", Role.FOLLOWER, null, 0, setOf(NodeID("1")))
             throw AssertionError("Expected to fail if follower has followers")
         } catch (e: IllegalStateException) {
             return
@@ -80,8 +83,17 @@ object ModelTest {
 
     private fun testCandidateFollowsSelf() {
         try {
-            State(Term(1), "123", Role.CANDIDATE, null, 0, setOf())
+            State(Term(1), null, "123", Role.CANDIDATE, null, 0, setOf())
             throw AssertionError("Expected to fail if candidate does not follow self")
+        } catch (e: IllegalStateException) {
+            return
+        }
+    }
+
+    private fun testCandidateVotesSelf() {
+        try {
+            State(Term(1), null, "123", Role.CANDIDATE, null, 0, setOf(NodeID("123")))
+            throw AssertionError("Expected to fail if candidate does not vote for itself")
         } catch (e: IllegalStateException) {
             return
         }
@@ -89,7 +101,7 @@ object ModelTest {
 
     private fun testLeaderFollowsSelf() {
         try {
-            State(Term(1), "123", Role.LEADER, null, 0, setOf())
+            State(Term(1), null, "123", Role.LEADER, null, 0, setOf())
             throw AssertionError("Expected to fail if leader does not follow self")
         } catch (e: IllegalStateException) {
             return
@@ -98,8 +110,17 @@ object ModelTest {
 
     private fun testLeaderIsFollowed() {
         try {
-            State(Term(1), "123", Role.LEADER, null, 0, setOf(NodeID("1")))
+            State(Term(1), null, "123", Role.LEADER, null, 0, setOf(NodeID("1")))
             throw AssertionError("Expected to fail if leader does not have at least 2 followers")
+        } catch (e: IllegalStateException) {
+            return
+        }
+    }
+
+    private fun testLeaderVotesSelf() {
+        try {
+            State(Term(1), null, "123", Role.CANDIDATE, null, 0, setOf(NodeID("1"), NodeID("2")))
+            throw AssertionError("Expected to fail if leader does not vote for itself")
         } catch (e: IllegalStateException) {
             return
         }
@@ -107,7 +128,7 @@ object ModelTest {
 
     private fun testLeaderHasCorrectTerm() {
         try {
-            State(Term(0), "123", Role.LEADER, null, 0, setOf(NodeID("123")))
+            State(Term(0), null, "123", Role.LEADER, null, 0, setOf(NodeID("123")))
             throw AssertionError("Expected to fail if leader has term equal 0")
         } catch (e: IllegalStateException) {
             return
@@ -116,7 +137,7 @@ object ModelTest {
 
     private fun testCandidateHasCorrectTerm() {
         try {
-            State(Term(0), "123", Role.CANDIDATE, null, 0, setOf(NodeID("123")))
+            State(Term(0), null, "123", Role.CANDIDATE, null, 0, setOf(NodeID("123")))
             throw AssertionError("Expected to fail if candidate has term equal 0")
         } catch (e: IllegalStateException) {
             return
@@ -124,11 +145,11 @@ object ModelTest {
     }
 
     private fun testFollowerIsAllowedZeroTerm() {
-        State(Term(0), "123", Role.FOLLOWER, null, 0, setOf())
+        State(Term(0), null, "123", Role.FOLLOWER, null, 0, setOf())
     }
 
     private fun testStateCopy() {
-        val state = State(Term(0), "123", Role.FOLLOWER, NodeID("3"), Time.now(), setOf())
+        val state = State(Term(0), null, "123", Role.FOLLOWER, NodeID("3"), Time.now(), setOf())
 
         val copyTerm = Term(5)
         val copy = State(state, copyTerm)

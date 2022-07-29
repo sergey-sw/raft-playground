@@ -21,7 +21,7 @@ class Network {
     fun connect(node: Node) {
         for (n in nodes)
             if (node.nodeID == n.nodeID)
-                throw java.lang.IllegalArgumentException("Network already contains node $node")
+                throw IllegalArgumentException("Network already contains node $node")
 
         nodes.add(node)
     }

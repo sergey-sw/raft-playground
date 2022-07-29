@@ -13,7 +13,7 @@ object Demo {
         // setup logging
         System.setProperty(
                 "java.util.logging.SimpleFormatter.format",
-                "%1\$tF %1\$tT %3\$s %4\$s %5\$s%6\$s%n"
+                "%1\$tF %1\$tT.%1\$tL %3\$s %4\$s %5\$s%6\$s%n"
         )
 
         val network = Network()

@@ -2,6 +2,7 @@ package xyz.skywind.raft.node
 
 data class State(
         val term: Term,
+        val vote: NodeID?,
         val data: String,
         val role: Role,
         val leader: NodeID?,
@@ -12,34 +13,37 @@ data class State(
     companion object {
         operator fun invoke(s: State,
                             term: Term = s.term,
+                            vote: NodeID? = s.vote,
                             data: String = s.data,
                             role: Role = s.role,
                             leader: NodeID? = s.leader,
                             lastLeaderHeartbeatTs: Long = s.lastLeaderHeartbeatTs,
                             followers: Set<NodeID> = s.followers): State {
-            return State(term, data, role, leader, lastLeaderHeartbeatTs, followers)
+            return State(term, vote, data, role, leader, lastLeaderHeartbeatTs, followers)
         }
     }
 
     init {
         if (role == Role.CANDIDATE) {
-            if (followers.isEmpty())
-                throw IllegalStateException("Should at least have self as follower when node is a candidate")
-
-            if (term.num < 1)
-                throw IllegalStateException("Candidate can't have 0 term")
+            check(followers.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
+            check(term.num > 0) { "Candidate can't have 0 term" }
+            checkNotNull(vote) { "Candidate should vote for itself" }
+            check(followers.contains(vote)) { "Candidate should have a vote for itself" }
         }
 
-        if (role == Role.FOLLOWER && followers.isNotEmpty()) {
-            throw IllegalStateException("Follower can not have followers")
+        if (role == Role.FOLLOWER) {
+            check(followers.isEmpty()) { "Follower can not have followers" }
         }
 
         if (role == Role.LEADER) {
-            if (followers.size <= 1)
-                throw IllegalStateException("Leader can not have less than 2 followers (including self)")
-
-            if (term.num < 1)
-                throw IllegalStateException("Leader can't be elected on 0 term")
+            check(term.num > 0) { "Leader can't be elected on 0 term" }
+            check(followers.size > 1) { "Leader can not have less than 2 followers (including self)" }
+            checkNotNull(vote) { "Leader should have a vote for itself" }
+            check(followers.contains(vote)) { "Candidate should have a vote for itself" }
         }
+    }
+
+    fun votedInThisTerm(t: Term): Boolean {
+        return term.num == t.num && vote != null
     }
 }
