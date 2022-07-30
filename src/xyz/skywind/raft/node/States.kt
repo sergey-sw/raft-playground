@@ -31,7 +31,11 @@ object States {
         check(state.term == msg.term)
         check(state.vote == msg.candidate)
 
-        return State(msg.term, state.vote, Role.LEADER, state.vote, Time.now(), state.followers + msg.follower)
+        return State(state.term, state.vote, Role.LEADER, state.vote, Time.now(), state.followers)
+    }
+
+    fun addFollower(state: State, follower: NodeID): State {
+        return State(state, followers = state.followers + follower)
     }
 
     fun voteFor(state: State, term: Term, candidate: NodeID): State {

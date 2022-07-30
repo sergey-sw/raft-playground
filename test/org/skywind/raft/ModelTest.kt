@@ -15,6 +15,8 @@ object ModelTest {
         termValidation()
         termComparator()
         testState()
+
+        println("Tests passed")
     }
 
     private fun voteResponseValidation() {

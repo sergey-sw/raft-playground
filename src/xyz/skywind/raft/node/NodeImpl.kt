@@ -5,15 +5,15 @@ import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.msg.NewLeaderMessage
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
+import xyz.skywind.raft.node.RaftAssertions.verifyRequestHasHigherTerm
+import xyz.skywind.raft.node.log.LifecycleLogging
 import xyz.skywind.raft.node.scheduler.Scheduler
 import xyz.skywind.tools.Delay
 import java.util.concurrent.ScheduledFuture
-import java.util.logging.Level
-import java.util.logging.Logger
 
 class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node {
 
-    private val logger = Logger.getLogger("raft-node-$nodeID")
+    private val logging = LifecycleLogging(nodeID)
 
     private val scheduler = Scheduler()
 
@@ -31,7 +31,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
     @Synchronized
     override fun start() {
-        log(Level.INFO, "Node $nodeID started")
+        logging.nodeStarted()
         tryPromoteMeAsLeaderLater()
     }
 
@@ -39,45 +39,42 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         scheduler.runNow {
             if (state.canAcceptTerm(msg.term)) {
                 state = States.fromAnyRoleToFollower(msg)
-                log(Level.INFO, "Node $nodeID accepted leadership of node ${msg.leader} in term ${msg.term}")
+                logging.acceptedLeadershipRequest(msg)
             } else {
-                log(Level.WARNING, "Node $nodeID refused leadership from ${msg.leader}. " +
-                        "Current term ${state.term}, leader term: ${msg.term}")
+                logging.ignoredLeadershipRequest(state, msg)
             }
         }
     }
 
     override fun handle(msg: VoteRequest) {
         scheduler.runNow {
-            if (state.role != Role.FOLLOWER) {
-                if (msg.term > state.term) {
-                    log(Level.INFO, "Stepping down from ${state.role} role in term ${state.term}: " +
-                            "received vote request for term ${msg.term} from ${msg.candidate}")
+            if (state.term > msg.term) {
+                logging.rejectVoteRequestBecauseOfSmallTerm(state, msg)
+                return@runNow
+            } else if (state.votedInThisTerm(msg.term)) {
+                logging.rejectVoteRequestBecauseAlreadyVoted(state, msg)
+                return@runNow
+            }
+
+            return@runNow when (state.role) {
+                Role.CANDIDATE, Role.LEADER -> {
+                    verifyRequestHasHigherTerm(state, msg)
+
+                    logging.stepDownToFollower(state, msg)
                     state = States.stepDownToFollower(msg)
                     network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
                     tryPromoteMeAsLeaderLater()
-                } else {
-                    log(Level.INFO, "Refused vote request from ${msg.candidate} in term ${msg.term}, " +
-                            "because node is ${state.role} in term ${state.term}")
-                }
-                return@runNow
-            } else if (state.canAcceptTerm(msg.term)) {
-                if (state.votedInThisTerm(msg.term)) {
-                    log(Level.INFO, "Refused vote request from ${msg.candidate} in term ${msg.term}. " +
-                            "Already voted for ${state.vote}")
-                    return@runNow
                 }
 
-                state = States.voteFor(state, msg.term, msg.candidate)
-                network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
-                log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.term}")
+                Role.FOLLOWER -> {
+                    state = States.voteFor(state, msg.term, msg.candidate)
+                    network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
+                    logging.voted(msg)
 
-                // reset the election timeout, if we voted for someone in this round
-                selfPromotionFuture?.cancel(true)
-                tryPromoteMeAsLeaderLater()
-            } else {
-                log(Level.INFO, "Refused vote request from ${msg.candidate}. " +
-                        "Current term ${state.term} > candidate term: ${msg.term}")
+                    // reset the election timeout, if we voted for someone in this round
+                    selfPromotionFuture?.cancel(true)
+                    tryPromoteMeAsLeaderLater()
+                }
             }
         }
     }
@@ -85,35 +82,33 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     override fun handle(msg: VoteResponse) {
         scheduler.runNow {
             if (msg.candidate != nodeID) {
-                log(Level.WARNING, "Received vote response for ${msg.candidate}. Ignoring")
+                logging.receivedVoteResponseForOtherNode(msg)
                 return@runNow
             } else if (state.term != msg.term) {
-                log(Level.INFO, "Received vote response for term ${msg.term}, current term is ${state.term}. Ignoring")
+                logging.receivedVoteResponseForOtherTerm(state, msg)
                 return@runNow
             }
 
             return@runNow when (state.role) {
                 Role.FOLLOWER -> {
-                    log(Level.INFO, "Ignoring vote response for term ${msg.term}, because current role is: ${state.role}")
+                    logging.receivedVoteResponseInFollowerState(state, msg)
                 }
 
                 Role.LEADER -> {
-                    log(Level.INFO, "Received vote response from ${msg.follower}, add to followers: ${state.followers}")
-
-                    state = State(state, followers = state.followers + msg.follower)
+                    state = States.addFollower(state, msg.follower)
+                    logging.addFollowerToLeader(state, msg)
                 }
 
                 Role.CANDIDATE -> {
-                    log(Level.INFO, "Accepting vote response in term ${state.term} from follower ${msg.follower}")
+                    logging.candidateAcceptsVoteResponse(state, msg)
 
-                    if (config.isQuorum(state.followers.size + 1)) {
+                    state = States.addFollower(state, msg.follower)
+                    if (config.isQuorum(state.followers.size)) {
                         state = States.candidateBecomesLeader(state, msg)
                         network.broadcast(nodeID, NewLeaderMessage(state.term, nodeID))
-                        log(Level.INFO, "Node $nodeID became leader in term ${state.term} with followers: ${state.followers}")
-                    } else {
-                        state = State(state, followers = state.followers + msg.follower)
-                        log(Level.INFO, "Node is still candidate in term ${state.term}, followers: ${state.followers}")
                     }
+
+                    logging.afterAcceptedVote(state)
                 }
             }
         }
@@ -121,7 +116,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
     private fun tryPromoteMeAsLeaderLater() {
         val electionTimeout = Delay.between(config.electionTimeoutMinMs, config.electionTimeoutMaxMs)
-        log(Level.INFO, "Will wait $electionTimeout ms before trying to promote self to leader")
+        logging.awaitingSelfPromotion(electionTimeout)
 
         selfPromotionFuture = scheduler.runLater(electionTimeout) {
             maybePromoteMeAsLeader()
@@ -133,7 +128,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
             // if there's no leader yet, let's promote ourselves
             state = States.becomeCandidate(state, nodeID)
             network.broadcast(nodeID, VoteRequest(state.term, nodeID))
-            log(Level.INFO, "Became a candidate in term ${state.term} and requested votes from others")
+            logging.promotedToCandidate(state)
 
             // schedule a task to fail-over if we do not receive enough responses
             scheduler.runLater(config.electionTimeoutMaxMs) {
@@ -145,9 +140,5 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                 }
             }
         }
-    }
-
-    private fun log(level: Level, msg: String) {
-        logger.log(level, msg)
     }
 }
