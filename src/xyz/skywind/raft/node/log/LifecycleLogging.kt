@@ -13,6 +13,10 @@ class LifecycleLogging(private val nodeID: NodeID) {
 
     private val logger = Logger.getLogger("raft-node-$nodeID")
 
+    private fun log(level: Level, msg: String) {
+        logger.log(level, msg)
+    }
+
     fun nodeStarted() {
         log(Level.INFO, "Node $nodeID started")
     }
@@ -26,7 +30,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
                 "Current term ${state.term}, leader term: ${msg.term}")
     }
 
-    fun stepDownToFollower(state: State, msg: VoteRequest) {
+    fun steppingDownToFollower(state: State, msg: VoteRequest) {
         log(Level.INFO, "Stepping down from ${state.role} role in term ${state.term}: " +
                 "received vote request for term ${msg.term} from ${msg.candidate}")
     }
@@ -50,7 +54,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun receivedVoteResponseInFollowerState(state: State, msg: VoteResponse) {
-        log(Level.INFO, "Ignoring vote response for term ${msg.term}, because current role is: ${state.role}")
+        log(Level.INFO, "Ignoring vote response for term ${msg.term}, because node is: ${state.role} in term ${state.term}")
     }
 
     fun addFollowerToLeader(state: State, msg: VoteResponse) {
@@ -69,7 +73,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
             log(Level.INFO, "Node $nodeID became leader in term ${state.term} with followers: ${state.followers}")
     }
 
-    fun awaitingSelfPromotion(electionTimeout: Int) {
+    fun awaitingSelfPromotion(electionTimeout: Number) {
         log(Level.INFO, "Will wait $electionTimeout ms before trying to promote self to leader")
     }
 
@@ -77,11 +81,17 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Became a candidate in term ${state.term} and requested votes from others")
     }
 
+    fun degradedToFollower(state: State) {
+        log(Level.INFO, "Didn't get enough votes, step down to ${Role.FOLLOWER} at term ${state.term}")
+    }
+
     fun voted(msg: VoteRequest) {
         log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.term}")
     }
 
-    private fun log(level: Level, msg: String) {
-        logger.log(level, msg)
+    fun onFailedDegradeFromCandidateToFollower(state: State) {
+        logger.log(Level.INFO, "Node didn't receive enough votes and reached promotion timeout. Expected to be " +
+                "${Role.CANDIDATE}, but node is ${state.role} in ${state.term} term. " +
+                "Probably received NewLeaderMessage. Skipped candidate->follower degrade operation.")
     }
 }

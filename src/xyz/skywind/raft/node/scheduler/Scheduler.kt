@@ -17,7 +17,7 @@ class Scheduler {
         executor.execute(runnable)
     }
 
-    fun runLater(delayMillis: Int, runnable: Runnable): ScheduledFuture<*> {
-        return executor.schedule(runnable, delayMillis.toLong(), TimeUnit.MILLISECONDS)
+    fun runPeriodically(delayMillis: Long, runnable: Runnable) {
+        executor.scheduleAtFixedRate(runnable, delayMillis, delayMillis, TimeUnit.MILLISECONDS)
     }
 }

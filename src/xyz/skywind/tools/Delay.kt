@@ -10,6 +10,10 @@ object Delay {
         return rnd.nextInt(from, to)
     }
 
+    fun between(from: Long, to: Long): Long {
+        return rnd.nextLong(from, to)
+    }
+
     fun upTo(value: Int): Int {
         return rnd.nextInt(1, value)
     }

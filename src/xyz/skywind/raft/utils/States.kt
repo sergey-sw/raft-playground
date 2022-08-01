@@ -1,8 +1,12 @@
-package xyz.skywind.raft.node
+package xyz.skywind.raft.utils
 
 import xyz.skywind.raft.msg.NewLeaderMessage
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
+import xyz.skywind.raft.node.NodeID
+import xyz.skywind.raft.node.Role
+import xyz.skywind.raft.node.State
+import xyz.skywind.raft.node.Term
 import xyz.skywind.tools.Time
 
 object States {

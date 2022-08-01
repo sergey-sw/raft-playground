@@ -2,9 +2,9 @@ package xyz.skywind.raft.cluster
 
 
 data class Config(val nodeCount: Int,
-                  val electionTimeoutMinMs: Int,
-                  val electionTimeoutMaxMs: Int,
-                  val heartbeatTimeoutMs: Int) {
+                  val electionTimeoutMinMs: Long,
+                  val electionTimeoutMaxMs: Long,
+                  val heartbeatTimeoutMs: Long) {
 
     companion object {
         const val MIN_EL_TIMEOUT = 10 // 10 milli seconds
@@ -24,7 +24,7 @@ data class Config(val nodeCount: Int,
         check(electionTimeoutMaxMs < MAX_EL_TIMEOUT) { "Param electionTimeoutMaxMs must be <= $MAX_EL_TIMEOUT" }
 
         check(electionTimeoutMaxMs - electionTimeoutMinMs >= MIN_DELAY_SPREAD) {
-            "Diff between min and max electionTimeoutMs must be >= $MIN_DELAY_SPREAD "
+            "Diff between min and max electionTimeoutMs must be >= $MIN_DELAY_SPREAD"
         }
 
         check(heartbeatTimeoutMs > 0) { "Param heartbeatTimeoutMs must be > 0" }
