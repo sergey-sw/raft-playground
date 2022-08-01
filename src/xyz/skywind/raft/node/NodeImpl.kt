@@ -5,11 +5,11 @@ import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.msg.NewLeaderMessage
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
-import xyz.skywind.raft.node.RaftAssertions.verifyRequestHasHigherTerm
+import xyz.skywind.raft.utils.RaftAssertions.verifyRequestHasHigherTerm
 import xyz.skywind.raft.node.log.LifecycleLogging
+import xyz.skywind.raft.node.scheduler.PromotionTask
 import xyz.skywind.raft.node.scheduler.Scheduler
-import xyz.skywind.tools.Delay
-import java.util.concurrent.ScheduledFuture
+import xyz.skywind.raft.utils.States
 
 class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node {
 
@@ -26,13 +26,15 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
             followers = setOf()
     )
 
-    @Volatile
-    private var selfPromotionFuture: ScheduledFuture<*>? = null
+    private val promotionTask = PromotionTask(
+            { state.role }, config, logging, scheduler,
+            { maybeUpgradeFromFollowerToCandidate() },
+            { maybeDegradeFromCandidateToFollower() }
+    )
 
-    @Synchronized
     override fun start() {
         logging.nodeStarted()
-        tryPromoteMeAsLeaderLater()
+        promotionTask.start()
     }
 
     override fun handle(msg: NewLeaderMessage) {
@@ -59,21 +61,16 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
             return@runNow when (state.role) {
                 Role.CANDIDATE, Role.LEADER -> {
                     verifyRequestHasHigherTerm(state, msg)
-
-                    logging.stepDownToFollower(state, msg)
+                    logging.steppingDownToFollower(state, msg)
                     state = States.stepDownToFollower(msg)
                     network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
-                    tryPromoteMeAsLeaderLater()
                 }
 
                 Role.FOLLOWER -> {
                     state = States.voteFor(state, msg.term, msg.candidate)
                     network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
                     logging.voted(msg)
-
-                    // reset the election timeout, if we voted for someone in this round
-                    selfPromotionFuture?.cancel(true)
-                    tryPromoteMeAsLeaderLater()
+                    promotionTask.restart(needFullTimeout = false) // reset the election timeout when vote for someone
                 }
             }
         }
@@ -107,37 +104,32 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                         state = States.candidateBecomesLeader(state, msg)
                         network.broadcast(nodeID, NewLeaderMessage(state.term, nodeID))
                     }
-
                     logging.afterAcceptedVote(state)
                 }
             }
         }
     }
 
-    private fun tryPromoteMeAsLeaderLater() {
-        val electionTimeout = Delay.between(config.electionTimeoutMinMs, config.electionTimeoutMaxMs)
-        logging.awaitingSelfPromotion(electionTimeout)
+    private fun maybeUpgradeFromFollowerToCandidate() {
+        scheduler.runNow {
+            check(state.role == Role.FOLLOWER) { "Expected to be a FOLLOWER, when promotion timer exceeds" }
 
-        selfPromotionFuture = scheduler.runLater(electionTimeout) {
-            maybePromoteMeAsLeader()
+            if (state.leader == null) {
+                // if there's no leader yet, let's promote ourselves
+                state = States.becomeCandidate(state, nodeID)
+                network.broadcast(nodeID, VoteRequest(state.term, nodeID))
+                logging.promotedToCandidate(state)
+            }
         }
     }
 
-    private fun maybePromoteMeAsLeader() {
-        if (state.leader == null) {
-            // if there's no leader yet, let's promote ourselves
-            state = States.becomeCandidate(state, nodeID)
-            network.broadcast(nodeID, VoteRequest(state.term, nodeID))
-            logging.promotedToCandidate(state)
-
-            // schedule a task to fail-over if we do not receive enough responses
-            scheduler.runLater(config.electionTimeoutMaxMs) {
-                if (state.role == Role.CANDIDATE) {
-                    // election failed, we are still just a candidate. rollback to follower state
-                    state = States.fromCandidateToFollower(state)
-
-                    tryPromoteMeAsLeaderLater()
-                }
+    private fun maybeDegradeFromCandidateToFollower() {
+        scheduler.runNow {
+            if (state.role == Role.CANDIDATE) {
+                state = States.fromCandidateToFollower(state) // didn't get enough votes, become a FOLLOWER
+                logging.degradedToFollower(state)
+            } else {
+                logging.onFailedDegradeFromCandidateToFollower(state)
             }
         }
     }

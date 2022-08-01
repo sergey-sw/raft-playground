@@ -1,6 +1,7 @@
-package xyz.skywind.raft.node
+package xyz.skywind.raft.utils
 
 import xyz.skywind.raft.msg.VoteRequest
+import xyz.skywind.raft.node.State
 
 object RaftAssertions {
 
