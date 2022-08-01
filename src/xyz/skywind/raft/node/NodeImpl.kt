@@ -2,6 +2,7 @@ package xyz.skywind.raft.node
 
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.cluster.Network
+import xyz.skywind.raft.msg.LeaderHeartbeat
 import xyz.skywind.raft.msg.NewLeaderMessage
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
@@ -29,7 +30,8 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     private val promotionTask = PromotionTask(
             { state.role }, config, logging, scheduler,
             { maybeUpgradeFromFollowerToCandidate() },
-            { maybeDegradeFromCandidateToFollower() }
+            { degradeFromCandidateToFollower() },
+            { sendHeartbeat() }
     )
 
     override fun start() {
@@ -44,6 +46,16 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                 logging.acceptedLeadershipRequest(msg)
             } else {
                 logging.ignoredLeadershipRequest(state, msg)
+            }
+        }
+    }
+
+    override fun handle(msg: LeaderHeartbeat) {
+        scheduler.runNow {
+            if (state.term == msg.term && state.leader == msg.leader) {
+                state = States.updateHeartbeat(state)
+            } else {
+                logging.onStrangeHeartbeat(state, msg)
             }
         }
     }
@@ -107,26 +119,27 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     }
 
     private fun maybeUpgradeFromFollowerToCandidate() {
-        scheduler.runNow {
-            check(state.role == Role.FOLLOWER) { "Expected to be a FOLLOWER, when promotion timer exceeds" }
-
-            if (state.needSelfPromotion(config)) {
-                // if there's no leader yet, let's promote ourselves
-                state = States.becomeCandidate(state, nodeID)
-                network.broadcast(nodeID, VoteRequest(state.term, nodeID))
-                logging.promotedToCandidate(state)
-            }
+        check(state.role == Role.FOLLOWER) { "Expected to be a FOLLOWER, when promotion timer exceeds" }
+        if (state.needSelfPromotion(config)) {
+            // if there's no leader yet, let's promote ourselves
+            state = States.becomeCandidate(state, nodeID)
+            network.broadcast(nodeID, VoteRequest(state.term, nodeID))
+            logging.promotedToCandidate(state)
         }
     }
 
-    private fun maybeDegradeFromCandidateToFollower() {
-        scheduler.runNow {
-            if (state.role == Role.CANDIDATE) {
-                state = States.fromCandidateToFollower(state) // didn't get enough votes, become a FOLLOWER
-                logging.degradedToFollower(state)
-            } else {
-                logging.onFailedDegradeFromCandidateToFollower(state)
-            }
+    private fun degradeFromCandidateToFollower() {
+        if (state.role == Role.CANDIDATE) {
+            state = States.fromCandidateToFollower(state) // didn't get enough votes, become a FOLLOWER
+            logging.degradedToFollower(state)
+        } else {
+            logging.onFailedDegradeFromCandidateToFollower(state)
         }
+    }
+
+    private fun sendHeartbeat() {
+        check(state.role == Role.LEADER) { "Expected to be a LEADER, when sending heartbeats" }
+        network.broadcast(nodeID, LeaderHeartbeat(state.term, nodeID))
+        logging.onHeartbeatBroadcast(state)
     }
 }

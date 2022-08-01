@@ -1,5 +1,6 @@
 package xyz.skywind.raft.node.log
 
+import xyz.skywind.raft.msg.LeaderHeartbeat
 import xyz.skywind.raft.msg.NewLeaderMessage
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
@@ -90,9 +91,17 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun onFailedDegradeFromCandidateToFollower(state: State) {
-        logger.log(Level.INFO, "Node didn't receive enough votes and reached promotion timeout. Expected to be " +
+        log(Level.INFO, "Node didn't receive enough votes and reached promotion timeout. Expected to be " +
                 "${Role.CANDIDATE}, but node is ${state.role} in ${state.term} term. " +
                 "Probably received NewLeaderMessage and already stepped down to ${Role.FOLLOWER}. " +
                 "Skipped candidate->follower degrade operation.")
+    }
+
+    fun onStrangeHeartbeat(state: State, msg: LeaderHeartbeat) {
+        log(Level.WARNING, "Received strange leader heartbeat $msg. Node is ${state.role} in term ${state.term}")
+    }
+
+    fun onHeartbeatBroadcast(state: State) {
+        log(Level.INFO, "Sent leader heartbeat in term ${state.term}")
     }
 }

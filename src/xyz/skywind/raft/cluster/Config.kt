@@ -4,7 +4,8 @@ package xyz.skywind.raft.cluster
 data class Config(val nodeCount: Int,
                   val electionTimeoutMinMs: Long,
                   val electionTimeoutMaxMs: Long,
-                  val heartbeatTimeoutMs: Long) {
+                  val heartbeatTimeoutMs: Long,
+                  val heartbeatTickPeriod: Long = heartbeatTimeoutMs / 4) {
 
     companion object {
         const val MIN_EL_TIMEOUT = 10 // 10 milli seconds

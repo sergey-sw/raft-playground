@@ -6,13 +6,15 @@ import xyz.skywind.raft.node.log.LifecycleLogging
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Time
 import java.util.concurrent.Callable
+import kotlin.math.log
 
 class PromotionTask(private val roleGetter: Callable<Role>,
                     private val cfg: Config,
                     private val logging: LifecycleLogging,
                     private val scheduler: Scheduler,
                     private val executeWhenFollower: Runnable,
-                    private val executeWhenCandidate: Runnable) {
+                    private val executeWhenCandidate: Runnable,
+                    private val executeWhenLeader: Runnable) {
 
     @Volatile
     private var nextCheckTime: Long = Time.now()
@@ -48,7 +50,10 @@ class PromotionTask(private val roleGetter: Callable<Role>,
                 executeWhenCandidate.run()
                 restart(needFullTimeout = false)
             }
-            Role.LEADER -> {}
+            Role.LEADER -> {
+                executeWhenLeader.run()
+                nextCheckTime = Time.now() + cfg.heartbeatTickPeriod
+            }
         }
     }
 

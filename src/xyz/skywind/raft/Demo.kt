@@ -22,7 +22,7 @@ object Demo {
                 nodeCount = 5,
                 electionTimeoutMinMs = 150,
                 electionTimeoutMaxMs = 300,
-                heartbeatTimeoutMs = 10_000
+                heartbeatTimeoutMs = 3_000
         )
 
         val cluster = Cluster(config)

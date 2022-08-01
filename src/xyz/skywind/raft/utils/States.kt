@@ -45,4 +45,8 @@ object States {
     fun voteFor(state: State, term: Term, candidate: NodeID): State {
         return State(state, term = term, vote = candidate)
     }
+
+    fun updateHeartbeat(state: State): State {
+        return State(state, lastLeaderHeartbeatTs = Time.now())
+    }
 }

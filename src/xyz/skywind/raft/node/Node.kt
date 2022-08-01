@@ -1,5 +1,6 @@
 package xyz.skywind.raft.node
 
+import xyz.skywind.raft.msg.LeaderHeartbeat
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
 import xyz.skywind.raft.msg.NewLeaderMessage
@@ -15,4 +16,6 @@ interface Node {
     fun handle(msg: VoteResponse)
 
     fun handle(msg: NewLeaderMessage)
+
+    fun handle(msg: LeaderHeartbeat)
 }

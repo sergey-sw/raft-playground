@@ -6,7 +6,7 @@ import xyz.skywind.raft.node.Term
 /**
  * This message is sent from a 'follower' node that voted for the leadership of a 'candidate' node
  */
-class VoteResponse(
+data class VoteResponse(
         val follower: NodeID,
         val candidate: NodeID,
         override val term: Term) : Message {
