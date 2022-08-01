@@ -5,6 +5,7 @@ import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.NodeImpl
+import xyz.skywind.tools.Delay
 
 object Demo {
 
@@ -34,5 +35,18 @@ object Demo {
         }
 
         cluster.start()
+
+        startNetworkPartitioner(network)
+    }
+
+    private fun startNetworkPartitioner(network: Network) {
+        Thread {
+            while (true) {
+                Thread.sleep(Delay.between(5_000, 8_000).toLong())
+                network.randomPartition()
+                Thread.sleep(Delay.between(100, 10_000).toLong())
+                network.connectAll()
+            }
+        }.start()
     }
 }

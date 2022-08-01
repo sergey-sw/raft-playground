@@ -6,7 +6,6 @@ import xyz.skywind.raft.node.log.LifecycleLogging
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Time
 import java.util.concurrent.Callable
-import kotlin.math.log
 
 class PromotionTask(private val roleGetter: Callable<Role>,
                     private val cfg: Config,
@@ -17,26 +16,30 @@ class PromotionTask(private val roleGetter: Callable<Role>,
                     private val executeWhenLeader: Runnable) {
 
     @Volatile
-    private var nextCheckTime: Long = Time.now()
+    private var nextExecutionTime: Long = Time.now()
 
     fun start() {
         check(roleGetter.call() == Role.FOLLOWER) { "Expected to start as a ${Role.FOLLOWER}" }
 
-        val electionTimeout = getRandomElectionTimeout()
-        logging.awaitingSelfPromotion(electionTimeout)
-        nextCheckTime = Time.now() + electionTimeout
+        internalTryPromoteSelfToCandidateLater(randomTimeout = true)
 
-        scheduler.runPeriodically(10, Tick())
+        scheduler.runPeriodically(5, Tick())
     }
 
-    fun restart(needFullTimeout: Boolean) {
-        val electionTimeout = if (needFullTimeout) cfg.electionTimeoutMaxMs else getRandomElectionTimeout()
-        nextCheckTime = Time.now() + electionTimeout
+    fun tryPromoteSelfToCandidateLater() {
+        internalTryPromoteSelfToCandidateLater(randomTimeout = false)
+    }
+
+    private fun internalTryPromoteSelfToCandidateLater(randomTimeout: Boolean) {
+        check(roleGetter.call() == Role.FOLLOWER) { "Self promotion requires ${Role.FOLLOWER} role" }
+
+        val electionTimeout = if (randomTimeout) getRandomElectionTimeout() else cfg.electionTimeoutMaxMs
+        nextExecutionTime = Time.now() + electionTimeout
         logging.awaitingSelfPromotion(electionTimeout)
     }
 
     private fun execute() {
-        check(Time.now() >= nextCheckTime) { "Attempt to execute task before the specified time" }
+        check(Time.now() >= nextExecutionTime) { "Attempt to execute task before the specified time" }
 
         val role = roleGetter.call()
         checkNotNull(role)
@@ -44,15 +47,15 @@ class PromotionTask(private val roleGetter: Callable<Role>,
         when (role) {
             Role.FOLLOWER -> {
                 executeWhenFollower.run()
-                restart(needFullTimeout = true)
+                nextExecutionTime = Time.now() + cfg.electionTimeoutMaxMs
             }
             Role.CANDIDATE -> {
                 executeWhenCandidate.run()
-                restart(needFullTimeout = false)
+                nextExecutionTime = Time.now() + getRandomElectionTimeout()
             }
             Role.LEADER -> {
                 executeWhenLeader.run()
-                nextCheckTime = Time.now() + cfg.heartbeatTickPeriod
+                nextExecutionTime = Time.now() + cfg.heartbeatTickPeriod
             }
         }
     }
@@ -63,12 +66,12 @@ class PromotionTask(private val roleGetter: Callable<Role>,
 
     inner class Tick : Runnable {
         override fun run() {
-            val nextCheckTimeBefore = nextCheckTime
+            val nextCheckTimeBefore = nextExecutionTime
 
             if (Time.now() >= nextCheckTimeBefore) {
                 execute()
 
-                check(nextCheckTime > nextCheckTimeBefore) { "PromotionTask execution must change the timer" }
+                check(nextExecutionTime > nextCheckTimeBefore) { "PromotionTask execution must change the timer" }
             }
         }
     }

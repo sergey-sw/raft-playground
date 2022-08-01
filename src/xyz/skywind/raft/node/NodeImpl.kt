@@ -78,9 +78,9 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                 state = States.stepDownToFollower(msg)
             }
 
-            network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
+            network.send(from = nodeID, to = msg.candidate, msg = VoteResponse(nodeID, msg.candidate, msg.term))
             logging.voted(msg)
-            promotionTask.restart(needFullTimeout = false) // reset the election timeout when vote for someone
+            promotionTask.tryPromoteSelfToCandidateLater() // reset the election timeout when vote for someone
         }
     }
 
@@ -95,9 +95,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
             }
 
             return@runNow when (state.role) {
-                Role.FOLLOWER -> {
-                    logging.receivedVoteResponseInFollowerState(state, msg)
-                }
+                Role.FOLLOWER -> logging.receivedVoteResponseInFollowerState(state, msg)
 
                 Role.LEADER -> {
                     state = States.addFollower(state, msg.follower)
