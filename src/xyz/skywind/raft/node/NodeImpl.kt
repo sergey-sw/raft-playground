@@ -29,9 +29,12 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     @Volatile
     private var selfPromotionFuture: ScheduledFuture<*>? = null
 
+    private val periodicalTasks = PeriodicalTasks(this, config, logging)
+
     @Synchronized
     override fun start() {
         logging.nodeStarted()
+        periodicalTasks.start()
         tryPromoteMeAsLeaderLater()
     }
 
@@ -73,6 +76,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
                     // reset the election timeout, if we voted for someone in this round
                     selfPromotionFuture?.cancel(true)
+                    periodicalTasks.restart()
                     tryPromoteMeAsLeaderLater()
                 }
             }
@@ -114,6 +118,18 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         }
     }
 
+    internal fun onInternalHeartbeat() {
+        when (state.role) {
+            Role.FOLLOWER -> {
+
+            }
+
+            Role.CANDIDATE -> {
+
+            }
+        }
+    }
+
     private fun tryPromoteMeAsLeaderLater() {
         val electionTimeout = Delay.between(config.electionTimeoutMinMs, config.electionTimeoutMaxMs)
         logging.awaitingSelfPromotion(electionTimeout)
@@ -123,7 +139,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         }
     }
 
-    private fun maybePromoteMeAsLeader() {
+    internal fun maybePromoteMeAsLeader() {
         if (state.leader == null) {
             // if there's no leader yet, let's promote ourselves
             state = States.becomeCandidate(state, nodeID)
