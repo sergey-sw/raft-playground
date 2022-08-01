@@ -58,21 +58,17 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                 return@runNow
             }
 
-            return@runNow when (state.role) {
-                Role.CANDIDATE, Role.LEADER -> {
-                    verifyRequestHasHigherTerm(state, msg)
-                    logging.steppingDownToFollower(state, msg)
-                    state = States.stepDownToFollower(msg)
-                    network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
-                }
-
-                Role.FOLLOWER -> {
-                    state = States.voteFor(state, msg.term, msg.candidate)
-                    network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
-                    logging.voted(msg)
-                    promotionTask.restart(needFullTimeout = false) // reset the election timeout when vote for someone
-                }
+            if (state.role == Role.FOLLOWER) {
+                state = States.voteFor(state, msg.term, msg.candidate)
+            } else {
+                verifyRequestHasHigherTerm(state, msg)
+                logging.steppingDownToFollower(state, msg)
+                state = States.stepDownToFollower(msg)
             }
+
+            network.send(msg.candidate, VoteResponse(nodeID, msg.candidate, msg.term))
+            logging.voted(msg)
+            promotionTask.restart(needFullTimeout = false) // reset the election timeout when vote for someone
         }
     }
 
@@ -114,7 +110,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         scheduler.runNow {
             check(state.role == Role.FOLLOWER) { "Expected to be a FOLLOWER, when promotion timer exceeds" }
 
-            if (state.leader == null) {
+            if (state.needSelfPromotion(config)) {
                 // if there's no leader yet, let's promote ourselves
                 state = States.becomeCandidate(state, nodeID)
                 network.broadcast(nodeID, VoteRequest(state.term, nodeID))

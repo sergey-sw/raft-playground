@@ -1,5 +1,8 @@
 package xyz.skywind.raft.node
 
+import xyz.skywind.raft.cluster.Config
+import xyz.skywind.tools.Time
+
 data class State(
         val term: Term,
         val vote: NodeID?,
@@ -45,7 +48,14 @@ data class State(
         return this.term.num == t.num && vote != null
     }
 
-    fun canAcceptTerm(t: Term) : Boolean {
+    fun canAcceptTerm(t: Term): Boolean {
         return this.term.num <= t.num
+    }
+
+    fun needSelfPromotion(cfg: Config): Boolean {
+        val noLeaderInCluster = leader == null
+        val noLeaderHeartbeat = Time.now() - lastLeaderHeartbeatTs > cfg.heartbeatTimeoutMs
+
+        return noLeaderInCluster || noLeaderHeartbeat
     }
 }
