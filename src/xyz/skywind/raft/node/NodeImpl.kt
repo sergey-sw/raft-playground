@@ -128,8 +128,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         logging.acceptedLeadership(msg)
     }
 
-    private fun maybeUpgradeFromFollowerToCandidate() {
-        check(state.role == Role.FOLLOWER) { "Expected to be a FOLLOWER, when promotion timer exceeds" }
+    private fun maybeUpgradeFromFollowerToCandidate() { // should be called only from PromotionTask
         if (state.needSelfPromotion(config)) {
             // if there's no leader yet, let's promote ourselves
             state = States.becomeCandidate(state, nodeID)
@@ -138,17 +137,12 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         }
     }
 
-    private fun stepDownFromCandidateToFollower() {
-        if (state.role == Role.CANDIDATE) {
-            state = States.stepDownToFollower(state) // didn't get enough votes, become a FOLLOWER
-            logging.stepDownFromCandidateToFollower(state)
-        } else {
-            logging.onFailedStepDownFromCandidateToFollower(state)
-        }
+    private fun stepDownFromCandidateToFollower() { // should be called only from PromotionTask
+        state = States.stepDownToFollower(state)
+        logging.stepDownFromCandidateToFollower(state)
     }
 
-    private fun sendHeartbeat() {
-        check(state.role == Role.LEADER) { "Expected to be a LEADER, when sending heartbeats" }
+    private fun sendHeartbeat() { // should be called only from PromotionTask
         network.broadcast(nodeID, LeaderHeartbeat(state.term, nodeID))
         logging.onHeartbeatBroadcast(state)
     }

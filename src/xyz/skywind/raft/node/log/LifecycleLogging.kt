@@ -88,13 +88,6 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.term}")
     }
 
-    fun onFailedStepDownFromCandidateToFollower(state: State) {
-        log(Level.INFO, "Node didn't receive enough votes and reached promotion timeout. Expected to be " +
-                "${Role.CANDIDATE}, but node is ${state.role} in ${state.term} term. " +
-                "Probably received NewLeaderMessage and already stepped down to ${Role.FOLLOWER}. " +
-                "Skipped candidate->follower step down operation.")
-    }
-
     fun onStrangeHeartbeat(state: State, msg: LeaderHeartbeat) {
         log(Level.WARNING, "Received strange leader heartbeat $msg. Node is ${state.role} in term ${state.term}")
     }
