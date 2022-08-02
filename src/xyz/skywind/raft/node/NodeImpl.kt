@@ -8,7 +8,6 @@ import xyz.skywind.raft.node.log.LifecycleLogging
 import xyz.skywind.raft.node.scheduler.PromotionTask
 import xyz.skywind.raft.node.scheduler.Scheduler
 import xyz.skywind.raft.utils.States
-import kotlin.math.log
 
 class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node {
 

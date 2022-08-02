@@ -9,13 +9,13 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Level
 import java.util.logging.Logger
-import kotlin.collections.HashMap
-import kotlin.math.max
 
 class Network {
 
     companion object {
         const val DEFAULT_NETWORK_DELAY_MILLIS = 5
+        const val MESSAGE_LOSS_PROBABILITY = 0.03
+        const val MESSAGE_DUPLICATE_PROBABILITY = 0.03
     }
 
     private val nodes: MutableList<Node> = ArrayList()
@@ -28,6 +28,8 @@ class Network {
 
     private val logger = Logger.getLogger("network")
 
+    private val random = Random()
+
     @Synchronized
     fun connect(node: Node) {
         for (n in nodes)
@@ -38,16 +40,12 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    fun setNetworkDelay(delayMillis: Int) {
-        networkDelayMillis.set(max(delayMillis, DEFAULT_NETWORK_DELAY_MILLIS))
-    }
-
     @Synchronized
     fun broadcast(from: NodeID, message: Message) {
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
-                    handle(node, message)
+                    handle(from, node, message)
                 }
             }
         }
@@ -58,7 +56,7 @@ class Network {
         if (connected(from, to)) {
             for (node in nodes) {
                 if (to == node.nodeID) {
-                    handle(node, msg)
+                    handle(from, node, msg)
                 }
             }
         }
@@ -100,19 +98,33 @@ class Network {
         return masks[node1] == masks[node2]
     }
 
-    private fun handle(node: Node, message: Message) {
+    private fun handle(from: NodeID, node: Node, message: Message) {
         CompletableFuture.runAsync {
             Thread.sleep(Delay.upTo(networkDelayMillis.get()).toLong())
 
-            when (message) {
-                is VoteRequest -> node.handle(message)
-                is VoteResponse -> node.handle(message)
-                is NewLeaderMessage -> node.handle(message)
-                is LeaderHeartbeat -> node.handle(message)
-                is HeartbeatResponse -> node.handle(message)
-
-                else -> throw UnsupportedOperationException(message.javaClass.simpleName)
+            if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
+                logger.warning("Message $message from $from to ${node.nodeID} is lost")
+                return@runAsync
             }
+
+            handleMessage(node, message)
+
+            if (random.nextDouble() < MESSAGE_DUPLICATE_PROBABILITY) {
+                logger.warning("Message $message from $from to ${node.nodeID} is duplicated")
+                handleMessage(node, message)
+            }
+        }
+    }
+
+    private fun handleMessage(node: Node, message: Message) {
+        when (message) {
+            is VoteRequest -> node.handle(message)
+            is VoteResponse -> node.handle(message)
+            is NewLeaderMessage -> node.handle(message)
+            is LeaderHeartbeat -> node.handle(message)
+            is HeartbeatResponse -> node.handle(message)
+
+            else -> throw UnsupportedOperationException(message.javaClass.simpleName)
         }
     }
 }

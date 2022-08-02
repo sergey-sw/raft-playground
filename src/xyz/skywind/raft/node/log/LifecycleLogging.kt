@@ -73,7 +73,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun awaitingSelfPromotion(electionTimeout: Number) {
-        log(Level.INFO, "Will wait $electionTimeout ms before trying to promote self to leader")
+        log(Level.INFO, "Will wait $electionTimeout ms before promoting self to candidate")
     }
 
     fun promotedToCandidate(state: State) {
