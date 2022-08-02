@@ -13,24 +13,24 @@ import java.util.logging.Logger
 class Network {
 
     companion object {
-        const val DEFAULT_NETWORK_DELAY_MILLIS = 5
+        const val MESSAGE_DELIVERY_DELAY_MILLIS = 5
         const val MESSAGE_LOSS_PROBABILITY = 0.03
-        const val MESSAGE_DUPLICATE_PROBABILITY = 0.03
+        const val MESSAGE_DUPLICATION_PROBABILITY = 0.03
     }
 
     private val nodes: MutableList<Node> = ArrayList()
 
     // number represents network ID
     // if two nodes have same mask value, they are connected
-    private val masks: MutableMap<NodeID, Int> = HashMap()
+    @Volatile
+    private var masks: MutableMap<NodeID, Int> = HashMap()
 
-    private var networkDelayMillis: AtomicInteger = AtomicInteger(5)
+    private var networkDelayMillis = AtomicInteger(5)
 
     private val logger = Logger.getLogger("network")
 
     private val random = Random()
 
-    @Synchronized
     fun connect(node: Node) {
         for (n in nodes)
             if (node.nodeID == n.nodeID)
@@ -40,7 +40,6 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    @Synchronized
     fun broadcast(from: NodeID, message: Message) {
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
@@ -51,7 +50,6 @@ class Network {
         }
     }
 
-    @Synchronized
     fun send(from: NodeID, to: NodeID, msg: Message) {
         if (connected(from, to)) {
             for (node in nodes) {
@@ -62,24 +60,26 @@ class Network {
         }
     }
 
-    @Synchronized
     fun randomPartition() {
         val rnd = Random()
 
         val numOfPartitions = rnd.nextInt(2, nodes.size + 1)
 
+        val newMask = HashMap<NodeID, Int>()
         for (nodeID in masks.keys) {
-            masks[nodeID] = rnd.nextInt(numOfPartitions) // assign node to random partition
+            newMask[nodeID] = rnd.nextInt(numOfPartitions) // assign node to random partition
         }
+        masks = newMask
 
         logger.log(Level.WARNING, ">> Network partition happened: ${prettifyPartitions()} <<")
     }
 
-    @Synchronized
     fun connectAll() {
+        val newMask = HashMap<NodeID, Int>()
         for (nodeID in masks.keys) {
-            masks[nodeID] = 0
+            newMask[nodeID] = 0
         }
+        masks = newMask
 
         logger.log(Level.WARNING, ">> Network partition resolved <<")
     }
@@ -95,6 +95,8 @@ class Network {
     }
 
     private fun connected(node1: NodeID, node2: NodeID): Boolean {
+        val masks = this.masks
+
         return masks[node1] == masks[node2]
     }
 
@@ -109,7 +111,7 @@ class Network {
 
             handleMessage(node, message)
 
-            if (random.nextDouble() < MESSAGE_DUPLICATE_PROBABILITY) {
+            if (random.nextDouble() < MESSAGE_DUPLICATION_PROBABILITY) {
                 logger.warning("Message $message from $from to ${node.nodeID} is duplicated")
                 handleMessage(node, message)
             }

@@ -15,14 +15,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
     private val scheduler = Scheduler()
 
-    private var state = State(
-            term = Term(0),
-            vote = null,
-            role = Role.FOLLOWER,
-            leader = null,
-            lastLeaderHeartbeatTs = 0,
-            followerHeartbeats = mapOf()
-    )
+    private var state = States.initialState()
 
     private val promotionTask = PromotionTask(
             { state.role }, config, logging, scheduler,
@@ -90,7 +83,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
             network.send(from = nodeID, to = msg.candidate, msg = VoteResponse(nodeID, msg.candidate, msg.term))
             logging.voted(msg)
-            promotionTask.tryPromoteSelfToCandidateLater() // reset the election timeout when vote for someone
+            promotionTask.resetElectionTimeout()
         }
     }
 

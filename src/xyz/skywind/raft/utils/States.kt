@@ -11,6 +11,17 @@ import xyz.skywind.tools.Time
 
 object States {
 
+    fun initialState(): State {
+        return State(
+                term = Term(0),
+                vote = null,
+                role = Role.FOLLOWER,
+                leader = null,
+                lastLeaderHeartbeatTs = 0,
+                followerHeartbeats = mapOf()
+        )
+    }
+
     fun stepDownToFollower(state: State): State {
         check(state.role != Role.FOLLOWER)
 

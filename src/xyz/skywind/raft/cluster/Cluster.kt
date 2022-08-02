@@ -21,7 +21,9 @@ class Cluster(private val config: Config) {
 
         logger.log(Level.INFO, "Starting raft cluster")
         logger.log(Level.INFO, "Nodes: " + nodes.map { n -> n.nodeID })
-        logger.log(Level.INFO, "Network delay millis: " + Network.DEFAULT_NETWORK_DELAY_MILLIS)
+        logger.log(Level.INFO, "Network message delay millis: " + Network.MESSAGE_DELIVERY_DELAY_MILLIS)
+        logger.log(Level.INFO, "Network message loss probability: " + Network.MESSAGE_LOSS_PROBABILITY)
+        logger.log(Level.INFO, "Network message duplication probability: " + Network.MESSAGE_DUPLICATION_PROBABILITY)
         logger.log(Level.INFO, "Raft election delay millis: " + config.electionTimeoutMinMs + ".." + config.electionTimeoutMaxMs)
         logger.log(Level.INFO, "Raft heartbeat timeout millis: " + config.heartbeatTimeoutMs)
 

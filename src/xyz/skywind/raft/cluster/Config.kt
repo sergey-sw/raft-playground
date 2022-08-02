@@ -18,11 +18,11 @@ data class Config(val nodeCount: Int,
     init {
         check(nodeCount > 0) { "Cluster should have nodes" }
 
-        check(electionTimeoutMinMs > MIN_EL_TIMEOUT) { "Param electionTimeoutMinMs must be >= $MIN_EL_TIMEOUT" }
-        check(electionTimeoutMinMs < MAX_EL_TIMEOUT) { "Param electionTimeoutMinMs must be <= $MAX_EL_TIMEOUT" }
+        check(electionTimeoutMinMs >= MIN_EL_TIMEOUT) { "Param electionTimeoutMinMs must be >= $MIN_EL_TIMEOUT" }
+        check(electionTimeoutMinMs <= MAX_EL_TIMEOUT) { "Param electionTimeoutMinMs must be <= $MAX_EL_TIMEOUT" }
 
-        check(electionTimeoutMaxMs > MIN_EL_TIMEOUT) { "Param electionTimeoutMaxMs must be >= $MIN_EL_TIMEOUT" }
-        check(electionTimeoutMaxMs < MAX_EL_TIMEOUT) { "Param electionTimeoutMaxMs must be <= $MAX_EL_TIMEOUT" }
+        check(electionTimeoutMaxMs >= MIN_EL_TIMEOUT) { "Param electionTimeoutMaxMs must be >= $MIN_EL_TIMEOUT" }
+        check(electionTimeoutMaxMs <= MAX_EL_TIMEOUT) { "Param electionTimeoutMaxMs must be <= $MAX_EL_TIMEOUT" }
 
         check(electionTimeoutMaxMs - electionTimeoutMinMs >= MIN_DELAY_SPREAD) {
             "Diff between min and max electionTimeoutMs must be >= $MIN_DELAY_SPREAD"
