@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Level
 import java.util.logging.Logger
+import kotlin.collections.HashMap
 import kotlin.math.max
 
 class Network {
@@ -24,6 +25,8 @@ class Network {
     private val masks: MutableMap<NodeID, Int> = HashMap()
 
     private var networkDelayMillis: AtomicInteger = AtomicInteger(5)
+
+    private val logger = Logger.getLogger("network")
 
     @Synchronized
     fun connect(node: Node) {
@@ -65,13 +68,13 @@ class Network {
     fun randomPartition() {
         val rnd = Random()
 
-        val numOfPartitions = 1 + rnd.nextInt(nodes.size)
+        val numOfPartitions = rnd.nextInt(2, nodes.size + 1)
 
         for (nodeID in masks.keys) {
             masks[nodeID] = rnd.nextInt(numOfPartitions) // assign node to random partition
         }
 
-        Logger.getLogger("Network").log(Level.WARNING, ">> Network partition happened: ${prettifyPartitions()} <<")
+        logger.log(Level.WARNING, ">> Network partition happened: ${prettifyPartitions()} <<")
     }
 
     @Synchronized
@@ -80,7 +83,7 @@ class Network {
             masks[nodeID] = 0
         }
 
-        Logger.getLogger("network").log(Level.WARNING, ">> Network partition resolved <<")
+        logger.log(Level.WARNING, ">> Network partition resolved <<")
     }
 
     private fun prettifyPartitions(): ArrayList<List<NodeID>> {
@@ -88,7 +91,7 @@ class Network {
 
         val groups = ArrayList<List<NodeID>>()
         for (group in partition2node.values) {
-            groups.add(group.map {node -> node.nodeID })
+            groups.add(group.map { node -> node.nodeID })
         }
         return groups
     }
@@ -106,6 +109,9 @@ class Network {
                 is VoteResponse -> node.handle(message)
                 is NewLeaderMessage -> node.handle(message)
                 is LeaderHeartbeat -> node.handle(message)
+                is HeartbeatResponse -> node.handle(message)
+
+                else -> throw UnsupportedOperationException(message.javaClass.simpleName)
             }
         }
     }

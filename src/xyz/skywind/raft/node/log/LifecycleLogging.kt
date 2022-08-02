@@ -1,9 +1,6 @@
 package xyz.skywind.raft.node.log
 
-import xyz.skywind.raft.msg.LeaderHeartbeat
-import xyz.skywind.raft.msg.NewLeaderMessage
-import xyz.skywind.raft.msg.VoteRequest
-import xyz.skywind.raft.msg.VoteResponse
+import xyz.skywind.raft.msg.*
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
@@ -22,8 +19,9 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Node $nodeID started")
     }
 
-    fun acceptedLeadershipRequest(msg: NewLeaderMessage) {
-        log(Level.INFO, "Node $nodeID accepted leadership of node ${msg.leader} in term ${msg.term}")
+    fun acceptedLeadership(msg: MessageFromLeader) {
+        log(Level.INFO, "Node $nodeID received ${msg.javaClass.simpleName} and accepted " +
+                "leadership of node ${msg.leader} in term ${msg.term}")
     }
 
     fun ignoredLeadershipRequest(state: State, msg: NewLeaderMessage) {
@@ -59,7 +57,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun addFollowerToLeader(state: State, msg: VoteResponse) {
-        log(Level.INFO, "Received vote response from ${msg.follower}, add to followers: ${state.followers}")
+        log(Level.INFO, "Received vote response from ${msg.follower}, add to followers: ${state.followers()}")
     }
 
     fun candidateAcceptsVoteResponse(state: State, msg: VoteResponse) {
@@ -69,9 +67,9 @@ class LifecycleLogging(private val nodeID: NodeID) {
     fun afterAcceptedVote(state: State) {
         check(state.role != Role.FOLLOWER) { "Expected to be ${Role.LEADER} or ${Role.FOLLOWER}" }
         if (state.role == Role.CANDIDATE)
-            log(Level.INFO, "Node is still candidate in term ${state.term}, followers: ${state.followers}")
+            log(Level.INFO, "Node is still candidate in term ${state.term}, followers: ${state.followers()}")
         else if (state.role == Role.LEADER)
-            log(Level.INFO, "Node $nodeID became leader in term ${state.term} with followers: ${state.followers}")
+            log(Level.INFO, "Node $nodeID became leader in term ${state.term} with followers: ${state.followers()}")
     }
 
     fun awaitingSelfPromotion(electionTimeout: Number) {
@@ -82,7 +80,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Became a candidate in term ${state.term} and requested votes from others")
     }
 
-    fun degradedToFollower(state: State) {
+    fun stepDownFromCandidateToFollower(state: State) {
         log(Level.INFO, "Didn't get enough votes, step down to ${Role.FOLLOWER} at term ${state.term}")
     }
 
@@ -90,11 +88,11 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.term}")
     }
 
-    fun onFailedDegradeFromCandidateToFollower(state: State) {
+    fun onFailedStepDownFromCandidateToFollower(state: State) {
         log(Level.INFO, "Node didn't receive enough votes and reached promotion timeout. Expected to be " +
                 "${Role.CANDIDATE}, but node is ${state.role} in ${state.term} term. " +
                 "Probably received NewLeaderMessage and already stepped down to ${Role.FOLLOWER}. " +
-                "Skipped candidate->follower degrade operation.")
+                "Skipped candidate->follower step down operation.")
     }
 
     fun onStrangeHeartbeat(state: State, msg: LeaderHeartbeat) {
@@ -102,6 +100,11 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun onHeartbeatBroadcast(state: State) {
-        log(Level.INFO, "Sent leader heartbeat in term ${state.term}")
+        log(Level.INFO, "Sent leader heartbeat in term ${state.term}. " +
+                "Follower delays: ${state.lastResponseFromFollowers()}")
+    }
+
+    fun onStrangeHeartbeatResponse(state: State, msg: HeartbeatResponse) {
+        log(Level.INFO, "Ignoring unexpected heartbeat response $msg, being a ${state.role} in term ${state.term}")
     }
 }

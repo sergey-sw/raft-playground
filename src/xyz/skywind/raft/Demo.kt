@@ -9,6 +9,8 @@ import xyz.skywind.tools.Delay
 
 object Demo {
 
+    private const val NETWORK_PARTITIONS_ENABLED = true
+
     @JvmStatic
     fun main(args: Array<String>) {
         // setup logging
@@ -36,7 +38,9 @@ object Demo {
 
         cluster.start()
 
-        startNetworkPartitioner(network)
+        if (NETWORK_PARTITIONS_ENABLED) {
+            startNetworkPartitioner(network)
+        }
     }
 
     private fun startNetworkPartitioner(network: Network) {

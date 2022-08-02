@@ -2,15 +2,13 @@ package xyz.skywind.raft.node
 
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.cluster.Network
-import xyz.skywind.raft.msg.LeaderHeartbeat
-import xyz.skywind.raft.msg.NewLeaderMessage
-import xyz.skywind.raft.msg.VoteRequest
-import xyz.skywind.raft.msg.VoteResponse
+import xyz.skywind.raft.msg.*
 import xyz.skywind.raft.utils.RaftAssertions.verifyRequestHasHigherTerm
 import xyz.skywind.raft.node.log.LifecycleLogging
 import xyz.skywind.raft.node.scheduler.PromotionTask
 import xyz.skywind.raft.node.scheduler.Scheduler
 import xyz.skywind.raft.utils.States
+import kotlin.math.log
 
 class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node {
 
@@ -24,13 +22,13 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
             role = Role.FOLLOWER,
             leader = null,
             lastLeaderHeartbeatTs = 0,
-            followers = setOf()
+            followerHeartbeats = mapOf()
     )
 
     private val promotionTask = PromotionTask(
             { state.role }, config, logging, scheduler,
             { maybeUpgradeFromFollowerToCandidate() },
-            { degradeFromCandidateToFollower() },
+            { stepDownFromCandidateToFollower() },
             { sendHeartbeat() }
     )
 
@@ -42,8 +40,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     override fun handle(msg: NewLeaderMessage) {
         scheduler.runNow {
             if (state.canAcceptTerm(msg.term)) {
-                state = States.fromAnyRoleToFollower(msg)
-                logging.acceptedLeadershipRequest(msg)
+                acceptLeadership(msg)
             } else {
                 logging.ignoredLeadershipRequest(state, msg)
             }
@@ -53,9 +50,23 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     override fun handle(msg: LeaderHeartbeat) {
         scheduler.runNow {
             if (state.term == msg.term && state.leader == msg.leader) {
-                state = States.updateHeartbeat(state)
+                state = States.updateLeaderHeartbeat(state)
+                network.send(nodeID, msg.leader, HeartbeatResponse(msg.term, nodeID))
+            } else if (state.canAcceptTerm(msg.term)) {
+                acceptLeadership(msg)
+                network.send(nodeID, msg.leader, HeartbeatResponse(msg.term, nodeID))
             } else {
                 logging.onStrangeHeartbeat(state, msg)
+            }
+        }
+    }
+
+    override fun handle(msg: HeartbeatResponse) {
+        scheduler.runNow {
+            if (state.term == msg.term && state.role == Role.LEADER) {
+                state = States.updateFollowerHeartbeat(state, msg.follower)
+            } else {
+                logging.onStrangeHeartbeatResponse(state, msg)
             }
         }
     }
@@ -106,7 +117,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                     logging.candidateAcceptsVoteResponse(state, msg)
 
                     state = States.addFollower(state, msg.follower)
-                    if (config.isQuorum(state.followers.size)) {
+                    if (config.isQuorum(state.followerHeartbeats.size)) {
                         state = States.candidateBecomesLeader(state, msg)
                         network.broadcast(nodeID, NewLeaderMessage(state.term, nodeID))
                     }
@@ -114,6 +125,15 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                 }
             }
         }
+    }
+
+    private fun acceptLeadership(msg: MessageFromLeader) {
+        val votedForThisLeader = (state.vote == msg.leader)
+        state = States.fromAnyRoleToFollower(msg)
+        if (!votedForThisLeader) {
+            network.send(from = nodeID, to = msg.leader, msg = VoteResponse(nodeID, msg.leader, msg.term))
+        }
+        logging.acceptedLeadership(msg)
     }
 
     private fun maybeUpgradeFromFollowerToCandidate() {
@@ -126,12 +146,12 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         }
     }
 
-    private fun degradeFromCandidateToFollower() {
+    private fun stepDownFromCandidateToFollower() {
         if (state.role == Role.CANDIDATE) {
-            state = States.fromCandidateToFollower(state) // didn't get enough votes, become a FOLLOWER
-            logging.degradedToFollower(state)
+            state = States.stepDownToFollower(state) // didn't get enough votes, become a FOLLOWER
+            logging.stepDownFromCandidateToFollower(state)
         } else {
-            logging.onFailedDegradeFromCandidateToFollower(state)
+            logging.onFailedStepDownFromCandidateToFollower(state)
         }
     }
 

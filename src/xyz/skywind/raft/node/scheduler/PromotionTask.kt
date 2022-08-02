@@ -21,19 +21,15 @@ class PromotionTask(private val roleGetter: Callable<Role>,
     fun start() {
         check(roleGetter.call() == Role.FOLLOWER) { "Expected to start as a ${Role.FOLLOWER}" }
 
-        internalTryPromoteSelfToCandidateLater(randomTimeout = true)
+        tryPromoteSelfToCandidateLater()
 
         scheduler.runPeriodically(5, Tick())
     }
 
     fun tryPromoteSelfToCandidateLater() {
-        internalTryPromoteSelfToCandidateLater(randomTimeout = false)
-    }
-
-    private fun internalTryPromoteSelfToCandidateLater(randomTimeout: Boolean) {
         check(roleGetter.call() == Role.FOLLOWER) { "Self promotion requires ${Role.FOLLOWER} role" }
 
-        val electionTimeout = if (randomTimeout) getRandomElectionTimeout() else cfg.electionTimeoutMaxMs
+        val electionTimeout = getRandomElectionTimeout()
         nextExecutionTime = Time.now() + electionTimeout
         logging.awaitingSelfPromotion(electionTimeout)
     }

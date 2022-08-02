@@ -9,7 +9,7 @@ data class State(
         val role: Role,
         val leader: NodeID?,
         val lastLeaderHeartbeatTs: Long,
-        val followers: Set<NodeID>) {
+        val followerHeartbeats: Map<NodeID, Long>) {
 
     // second constructor that accepts prev state for default values
     companion object {
@@ -19,28 +19,28 @@ data class State(
                             role: Role = s.role,
                             leader: NodeID? = s.leader,
                             lastLeaderHeartbeatTs: Long = s.lastLeaderHeartbeatTs,
-                            followers: Set<NodeID> = s.followers): State {
-            return State(term, vote, role, leader, lastLeaderHeartbeatTs, followers)
+                            followerHeartbeats: Map<NodeID, Long> = s.followerHeartbeats): State {
+            return State(term, vote, role, leader, lastLeaderHeartbeatTs, followerHeartbeats)
         }
     }
 
     init {
         if (role == Role.CANDIDATE) {
-            check(followers.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
+            check(followerHeartbeats.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
             check(term.num > 0) { "Candidate can't have 0 term" }
             checkNotNull(vote) { "Candidate should vote for itself" }
-            check(followers.contains(vote)) { "Candidate should have a vote for itself" }
+            check(followerHeartbeats.contains(vote)) { "Candidate should have a vote for itself" }
         }
 
         if (role == Role.FOLLOWER) {
-            check(followers.isEmpty()) { "Follower can not have followers" }
+            check(followerHeartbeats.isEmpty()) { "Follower can not have followers" }
         }
 
         if (role == Role.LEADER) {
             check(term.num > 0) { "Leader can't be elected on 0 term" }
-            check(followers.size > 1) { "Leader can not have less than 2 followers (including self)" }
+            check(followerHeartbeats.size > 1) { "Leader can not have less than 2 followers (including self)" }
             checkNotNull(vote) { "Leader should have a vote for itself" }
-            check(followers.contains(vote)) { "Candidate should have a vote for itself" }
+            check(followerHeartbeats.contains(vote)) { "Candidate should have a vote for itself" }
         }
     }
 
@@ -57,5 +57,20 @@ data class State(
         val noLeaderHeartbeat = Time.now() - lastLeaderHeartbeatTs > cfg.heartbeatTimeoutMs
 
         return noLeaderInCluster || noLeaderHeartbeat
+    }
+
+    fun followers(): Set<NodeID> {
+        return followerHeartbeats.keys
+    }
+
+    fun lastResponseFromFollowers(): HashMap<NodeID, Long> {
+        val follower2delay = HashMap<NodeID, Long>()
+
+        for (followerHeartbeat in followerHeartbeats) {
+            follower2delay[followerHeartbeat.key] = Time.now() - followerHeartbeat.value
+        }
+        follower2delay.remove(leader)
+
+        return follower2delay
     }
 }
