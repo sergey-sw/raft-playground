@@ -19,14 +19,9 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Node $nodeID started")
     }
 
-    fun acceptedLeadership(msg: MessageFromLeader) {
+    fun acceptedLeadership(msg: LeaderHeartbeat) {
         log(Level.INFO, "Node $nodeID received ${msg.javaClass.simpleName} and accepted " +
                 "leadership of node ${msg.leader} in term ${msg.term}")
-    }
-
-    fun ignoredLeadershipRequest(state: State, msg: NewLeaderMessage) {
-        log(Level.WARNING, "Node $nodeID refused leadership from ${msg.leader}. " +
-                "Current term ${state.term}, leader term: ${msg.term}")
     }
 
     fun steppingDownToFollower(state: State, msg: VoteRequest) {

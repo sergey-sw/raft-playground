@@ -1,6 +1,6 @@
 package xyz.skywind.raft.utils
 
-import xyz.skywind.raft.msg.MessageFromLeader
+import xyz.skywind.raft.msg.LeaderHeartbeat
 import xyz.skywind.raft.msg.VoteRequest
 import xyz.skywind.raft.msg.VoteResponse
 import xyz.skywind.raft.node.NodeID
@@ -29,7 +29,7 @@ object States {
                 lastLeaderHeartbeatTs = 0, followerHeartbeats = mapOf())
     }
 
-    fun fromAnyRoleToFollower(msg: MessageFromLeader): State {
+    fun fromAnyRoleToFollower(msg: LeaderHeartbeat): State {
         return State(msg.term, msg.leader, Role.FOLLOWER, msg.leader, Time.now(), mapOf())
     }
 

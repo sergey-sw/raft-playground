@@ -12,8 +12,6 @@ interface Node {
 
     fun handle(msg: VoteResponse)
 
-    fun handle(msg: NewLeaderMessage)
-
     fun handle(msg: LeaderHeartbeat)
 
     fun handle(msg: HeartbeatResponse)

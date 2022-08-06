@@ -122,11 +122,8 @@ class Network {
         when (message) {
             is VoteRequest -> node.handle(message)
             is VoteResponse -> node.handle(message)
-            is NewLeaderMessage -> node.handle(message)
             is LeaderHeartbeat -> node.handle(message)
             is HeartbeatResponse -> node.handle(message)
-
-            else -> throw UnsupportedOperationException(message.javaClass.simpleName)
         }
     }
 }

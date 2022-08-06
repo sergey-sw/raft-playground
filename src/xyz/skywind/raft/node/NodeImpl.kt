@@ -29,24 +29,20 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         promotionTask.start()
     }
 
-    override fun handle(msg: NewLeaderMessage) {
-        scheduler.runNow {
-            if (state.canAcceptTerm(msg.term)) {
-                acceptLeadership(msg)
-            } else {
-                logging.ignoredLeadershipRequest(state, msg)
-            }
-        }
-    }
-
     override fun handle(msg: LeaderHeartbeat) {
         scheduler.runNow {
             if (state.term == msg.term && state.leader == msg.leader) {
                 state = States.updateLeaderHeartbeat(state)
                 network.send(nodeID, msg.leader, HeartbeatResponse(msg.term, nodeID))
             } else if (state.canAcceptTerm(msg.term)) {
-                acceptLeadership(msg)
-                network.send(nodeID, msg.leader, HeartbeatResponse(msg.term, nodeID))
+                val votedForThisLeader = (state.vote == msg.leader)
+                state = States.fromAnyRoleToFollower(msg)
+                if (votedForThisLeader) {
+                    network.send(nodeID, msg.leader, HeartbeatResponse(msg.term, nodeID))
+                } else {
+                    network.send(from = nodeID, to = msg.leader, msg = VoteResponse(nodeID, msg.leader, msg.term))
+                }
+                logging.acceptedLeadership(msg)
             } else {
                 logging.onStrangeHeartbeat(state, msg)
             }
@@ -111,21 +107,12 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                     state = States.addFollower(state, msg.follower)
                     if (config.isQuorum(state.followerHeartbeats.size)) {
                         state = States.candidateBecomesLeader(state, msg)
-                        network.broadcast(nodeID, NewLeaderMessage(state.term, nodeID))
+                        network.broadcast(nodeID, LeaderHeartbeat(state.term, nodeID))
                     }
                     logging.afterAcceptedVote(state)
                 }
             }
         }
-    }
-
-    private fun acceptLeadership(msg: MessageFromLeader) {
-        val votedForThisLeader = (state.vote == msg.leader)
-        state = States.fromAnyRoleToFollower(msg)
-        if (!votedForThisLeader) {
-            network.send(from = nodeID, to = msg.leader, msg = VoteResponse(nodeID, msg.leader, msg.term))
-        }
-        logging.acceptedLeadership(msg)
     }
 
     private fun maybeUpgradeFromFollowerToCandidate() { // should be called only from PromotionTask
