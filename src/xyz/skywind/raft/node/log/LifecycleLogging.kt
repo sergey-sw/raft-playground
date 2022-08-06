@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node.log
 
-import xyz.skywind.raft.msg.*
+import xyz.skywind.raft.rpc.*
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
@@ -26,37 +26,63 @@ class LifecycleLogging(private val nodeID: NodeID) {
 
     fun steppingDownToFollower(state: State, msg: VoteRequest) {
         log(Level.INFO, "Stepping down from ${state.role} role in term ${state.term}: " +
-                "received vote request for term ${msg.term} from ${msg.candidate}")
+                "received vote request for term ${msg.candidateTerm} from ${msg.candidate}")
     }
 
     fun rejectVoteRequestBecauseOfSmallTerm(state: State, msg: VoteRequest) {
-        log(Level.INFO, "Rejecting vote request from ${msg.candidate} in term ${msg.term}, " +
+        log(Level.INFO, "Rejecting vote request from ${msg.candidate} in term ${msg.candidateTerm}, " +
                 "because node is ${state.role} in term ${state.term}")
     }
 
     fun rejectVoteRequestBecauseAlreadyVoted(state: State, msg: VoteRequest) {
-        log(Level.INFO, "Refused vote request from ${msg.candidate} in term ${msg.term}. " +
+        log(Level.INFO, "Refused vote request from ${msg.candidate} in term ${msg.candidateTerm}. " +
                 "Already voted for ${state.vote}")
     }
 
-    fun receivedVoteResponseForOtherNode(msg: VoteResponse) {
+    /*fun receivedVoteResponseForOtherNode(msg: VoteResponse) {
         log(Level.WARNING, "Received vote response for ${msg.candidate}. Ignoring")
-    }
+    }*/
 
-    fun receivedVoteResponseForOtherTerm(state: State, msg: VoteResponse) {
+    /*fun receivedVoteResponseForOtherTerm(state: State, msg: VoteResponse) {
         log(Level.INFO, "Received vote response for term ${msg.term}, current term is ${state.term}. Ignoring")
-    }
+    }*/
 
-    fun receivedVoteResponseInFollowerState(state: State, msg: VoteResponse) {
+    /*fun receivedVoteResponseInFollowerState(state: State, msg: VoteResponse) {
         log(Level.INFO, "Ignoring vote response for term ${msg.term}, because node is: ${state.role} in term ${state.term}")
+    }*/
+
+    fun receivedVoteResponseInFollowerState(state: State, response: VoteResponse) {
+        log(Level.INFO, "Ignoring {granted=${response.granted}} VoteResponse for term ${response.requestTerm}, " +
+                "because node is: ${state.role} in term ${state.term}")
     }
 
-    fun addFollowerToLeader(state: State, msg: VoteResponse) {
+    /*fun addFollowerToLeader(state: State, msg: VoteResponse) {
         log(Level.INFO, "Received vote response from ${msg.follower}, add to followers: ${state.followers()}")
+    }*/
+
+    fun addFollowerToLeader(state: State, response: VoteResponse) {
+        log(Level.INFO, "Received VoteResponse from ${response.voter}, add to followers: ${state.followers()}")
     }
 
-    fun candidateAcceptsVoteResponse(state: State, msg: VoteResponse) {
+    fun onDeniedVoteResponse(state: State, response: VoteResponse) {
+        log(Level.INFO, "Received denied VoteResponse from ${response.voter} in term ${response.voterTerm}. " +
+                "Current node is ${state.role} in term ${state.term}")
+    }
+
+    /*fun leaderAcceptsVoteResponse(state: State, response: VoteResponse) {
+        if (response.granted) {
+            log(Level.INFO, "Received VoteResponse from ${response.voter}, add to followers: ${state.followers()}")
+        } else {
+            log(Level.INFO, "Received VoteResponse{granted=false} from ${response.voter}, current followers: ${state.followers()}")
+        }
+    }*/
+
+    /*fun candidateAcceptsVoteResponse(state: State, msg: VoteResponse) {
         log(Level.INFO, "Accepting vote response in term ${state.term} from follower ${msg.follower}")
+    }*/
+
+    fun candidateAcceptsVoteResponse(state: State, response: VoteResponse) {
+        log(Level.INFO, "Accepting VoteResponse{granted=${response.granted}} in term ${state.term} from follower ${response.voter}")
     }
 
     fun afterAcceptedVote(state: State) {
@@ -79,8 +105,14 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Didn't get enough votes, step down to ${Role.FOLLOWER} at term ${state.term}")
     }
 
+    fun stepDownToFollower(state: State, voteResponse: VoteResponse) {
+        log(Level.INFO, "Step down to ${Role.FOLLOWER} at term ${state.term}, because of VoteResponse from " +
+                "${voteResponse.voter} in term ${voteResponse.voterTerm}")
+
+    }
+
     fun voted(msg: VoteRequest) {
-        log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.term}")
+        log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.candidateTerm}")
     }
 
     fun onStrangeHeartbeat(state: State, msg: LeaderHeartbeat) {

@@ -1,8 +1,9 @@
 package xyz.skywind.raft.utils
 
-import xyz.skywind.raft.msg.LeaderHeartbeat
-import xyz.skywind.raft.msg.VoteRequest
-import xyz.skywind.raft.msg.VoteResponse
+import xyz.skywind.raft.rpc.LeaderHeartbeat
+import xyz.skywind.raft.rpc.VoteRequest
+// import xyz.skywind.raft.msg.VoteResponse
+import xyz.skywind.raft.rpc.VoteResponse
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
@@ -39,13 +40,20 @@ object States {
     }
 
     fun stepDownToFollower(msg: VoteRequest): State {
-        return State(msg.term, msg.candidate, Role.FOLLOWER, null, 0, mapOf())
+        return State(msg.candidateTerm, msg.candidate, Role.FOLLOWER, null, 0, mapOf())
     }
 
-    fun candidateBecomesLeader(state: State, msg: VoteResponse): State {
+    /*fun candidateBecomesLeader(state: State, msg: VoteResponse): State {
         check(state.role == Role.CANDIDATE)
         check(state.term == msg.term)
         check(state.vote == msg.candidate)
+
+        return State(state.term, state.vote, Role.LEADER, state.vote, Time.now(), state.followerHeartbeats)
+    }*/
+
+    fun candidateBecomesLeader(state: State, response: VoteResponse): State {
+        check(state.role == Role.CANDIDATE)
+        check(state.term == response.requestTerm)
 
         return State(state.term, state.vote, Role.LEADER, state.vote, Time.now(), state.followerHeartbeats)
     }

@@ -1,6 +1,6 @@
 package org.skywind.raft
 
-import xyz.skywind.raft.msg.VoteResponse
+// import xyz.skywind.raft.msg.VoteResponse
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
@@ -11,7 +11,7 @@ object ModelTest {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        voteResponseValidation()
+        // voteResponseValidation()
         termValidation()
         termComparator()
         testState()
@@ -19,7 +19,7 @@ object ModelTest {
         println("Tests passed")
     }
 
-    private fun voteResponseValidation() {
+    /*private fun voteResponseValidation() {
         VoteResponse(NodeID("1"), NodeID("2"), Term(1))
 
         try {
@@ -28,7 +28,7 @@ object ModelTest {
         } catch (e: IllegalArgumentException) {
             return
         }
-    }
+    }*/
 
     private fun termValidation() {
         Term(0)

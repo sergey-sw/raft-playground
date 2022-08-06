@@ -1,12 +1,13 @@
 package xyz.skywind.raft.cluster
 
-import xyz.skywind.raft.msg.*
+import xyz.skywind.raft.rpc.*
 import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.tools.Delay
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.Consumer
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -40,21 +41,21 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    fun broadcast(from: NodeID, message: Message) {
+    fun broadcast(from: NodeID, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
-                    handle(from, node, message)
+                    processLeaderHeartbeat(from, node, request, callback)
                 }
             }
         }
     }
 
-    fun send(from: NodeID, to: NodeID, msg: Message) {
-        if (connected(from, to)) {
-            for (node in nodes) {
-                if (to == node.nodeID) {
-                    handle(from, node, msg)
+    fun broadcast(from: NodeID, request: VoteRequest, callback: Consumer<VoteResponse>) {
+        for (node in nodes) {
+            if (node.nodeID != from) { // don't broadcast to itself
+                if (connected(from, node.nodeID)) { // check nodes are connected
+                    processVoteRequest(from, node, request, callback)
                 }
             }
         }
@@ -100,30 +101,39 @@ class Network {
         return masks[node1] == masks[node2]
     }
 
-    private fun handle(from: NodeID, node: Node, message: Message) {
+    private fun processVoteRequest(from: NodeID, node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
         CompletableFuture.runAsync {
             Thread.sleep(Delay.upTo(networkDelayMillis.get()).toLong())
 
             if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
-                logger.warning("Message $message from $from to ${node.nodeID} is lost")
+                logger.warning("Request $request from $from to ${node.nodeID} is lost")
                 return@runAsync
             }
 
-            handleMessage(node, message)
+            callback.accept(node.process(request))
 
             if (random.nextDouble() < MESSAGE_DUPLICATION_PROBABILITY) {
-                logger.warning("Message $message from $from to ${node.nodeID} is duplicated")
-                handleMessage(node, message)
+                logger.warning("Request $request from $from to ${node.nodeID} is duplicated")
+                callback.accept(node.process(request))
             }
         }
     }
 
-    private fun handleMessage(node: Node, message: Message) {
-        when (message) {
-            is VoteRequest -> node.handle(message)
-            is VoteResponse -> node.handle(message)
-            is LeaderHeartbeat -> node.handle(message)
-            is HeartbeatResponse -> node.handle(message)
+    private fun processLeaderHeartbeat(from: NodeID, node: Node, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
+        CompletableFuture.runAsync {
+            Thread.sleep(Delay.upTo(networkDelayMillis.get()).toLong())
+
+            if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
+                logger.warning("Request $request from $from to ${node.nodeID} is lost")
+                return@runAsync
+            }
+
+            callback.accept(node.process(request))
+
+            if (random.nextDouble() < MESSAGE_DUPLICATION_PROBABILITY) {
+                logger.warning("Request $request from $from to ${node.nodeID} is duplicated")
+                callback.accept(node.process(request))
+            }
         }
     }
 }
