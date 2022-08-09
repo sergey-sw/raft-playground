@@ -2,12 +2,12 @@ package xyz.skywind.raft.utils
 
 import xyz.skywind.raft.rpc.LeaderHeartbeat
 import xyz.skywind.raft.rpc.VoteRequest
-// import xyz.skywind.raft.msg.VoteResponse
 import xyz.skywind.raft.rpc.VoteResponse
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
 import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.rpc.HeartbeatResponse
 import xyz.skywind.tools.Time
 
 object States {
@@ -16,6 +16,7 @@ object States {
         return State(
                 term = Term(0),
                 vote = null,
+                votedAt = null,
                 role = Role.FOLLOWER,
                 leader = null,
                 lastLeaderHeartbeatTs = 0,
@@ -23,39 +24,44 @@ object States {
         )
     }
 
-    fun stepDownToFollower(state: State): State {
+    fun stepDownToFollowerBecauseOfHigherTerm(state: State, newTerm: Term): State {
         check(state.role != Role.FOLLOWER)
 
-        return State(term = state.term.inc(), vote = null, role = Role.FOLLOWER, leader = null,
+        return State(term = newTerm, vote = null, votedAt = null, role = Role.FOLLOWER, leader = null,
+                lastLeaderHeartbeatTs = 0, followerHeartbeats = mapOf())
+    }
+
+    fun stepDownToFollowerOnElectionTimeout(state: State): State {
+        check(state.role != Role.FOLLOWER)
+
+        return State(term = state.term, vote = state.vote, votedAt = state.votedAt, role = Role.FOLLOWER, leader = null,
                 lastLeaderHeartbeatTs = 0, followerHeartbeats = mapOf())
     }
 
     fun fromAnyRoleToFollower(msg: LeaderHeartbeat): State {
-        return State(msg.term, msg.leader, Role.FOLLOWER, msg.leader, Time.now(), mapOf())
+        return State(msg.term, msg.leader, Time.now(), Role.FOLLOWER, msg.leader, Time.now(), mapOf())
     }
 
     fun becomeCandidate(state: State, nodeID: NodeID): State {
-        return State(state, term = state.term.inc(), vote = nodeID, role = Role.CANDIDATE,
-                followerHeartbeats = mapOf(Pair(nodeID, Time.now())))
+        return State(state, term = state.term.inc(), vote = nodeID, votedAt = Time.now(), role = Role.CANDIDATE,
+                leader = null, followerHeartbeats = mapOf(Pair(nodeID, Time.now())))
     }
 
     fun stepDownToFollower(msg: VoteRequest): State {
-        return State(msg.candidateTerm, msg.candidate, Role.FOLLOWER, null, 0, mapOf())
+        return State(msg.candidateTerm, vote = msg.candidate, votedAt = Time.now(), Role.FOLLOWER,
+                leader = null, lastLeaderHeartbeatTs = 0, followerHeartbeats = mapOf())
     }
 
-    /*fun candidateBecomesLeader(state: State, msg: VoteResponse): State {
-        check(state.role == Role.CANDIDATE)
-        check(state.term == msg.term)
-        check(state.vote == msg.candidate)
-
-        return State(state.term, state.vote, Role.LEADER, state.vote, Time.now(), state.followerHeartbeats)
-    }*/
+    fun stepDownToFollower(resp: HeartbeatResponse): State {
+        return State(resp.followerTerm, vote = null, votedAt = null, Role.FOLLOWER, leader = null,
+                lastLeaderHeartbeatTs = 0, followerHeartbeats = mapOf())
+    }
 
     fun candidateBecomesLeader(state: State, response: VoteResponse): State {
         check(state.role == Role.CANDIDATE)
         check(state.term == response.requestTerm)
 
-        return State(state.term, state.vote, Role.LEADER, state.vote, Time.now(), state.followerHeartbeats)
+        return State(state.term, state.vote, state.votedAt, Role.LEADER, state.vote, Time.now(), state.followerHeartbeats)
     }
 
     fun addFollower(state: State, follower: NodeID): State {
@@ -63,7 +69,8 @@ object States {
     }
 
     fun voteFor(state: State, term: Term, candidate: NodeID): State {
-        return State(state, term = term, vote = candidate)
+        RaftAssertions.verifyNodeDidNotVoteInTerm(state, term, candidate)
+        return State(state, term = term, vote = candidate, votedAt = Time.now())
     }
 
     fun updateLeaderHeartbeat(state: State): State {

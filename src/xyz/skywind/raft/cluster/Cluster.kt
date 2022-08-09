@@ -1,10 +1,10 @@
 package xyz.skywind.raft.cluster
 
 import xyz.skywind.raft.node.Node
+import xyz.skywind.tools.Logging
 import java.util.logging.Level
-import java.util.logging.Logger
 
-class Cluster(private val config: Config) {
+class Cluster(private val config: Config, private val network: Network) {
 
     private val nodes = HashSet<Node>()
 
@@ -14,10 +14,11 @@ class Cluster(private val config: Config) {
         }
 
         nodes.add(node)
+        network.connect(node)
     }
 
     fun start() {
-        val logger = Logger.getLogger("raft-cluster")
+        val logger = Logging.getLogger("raft-cluster")
 
         logger.log(Level.INFO, "Starting raft cluster")
         logger.log(Level.INFO, "Nodes: " + nodes.map { n -> n.nodeID })
@@ -28,5 +29,7 @@ class Cluster(private val config: Config) {
         logger.log(Level.INFO, "Raft heartbeat timeout millis: " + config.heartbeatTimeoutMs)
 
         nodes.forEach { n -> n.start() }
+
+        network.start()
     }
 }

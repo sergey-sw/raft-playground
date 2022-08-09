@@ -1,57 +1,61 @@
-package xyz.skywind.raft.node.scheduler
+package xyz.skywind.raft.node
 
 import xyz.skywind.raft.cluster.Config
-import xyz.skywind.raft.node.Role
-import xyz.skywind.raft.node.log.LifecycleLogging
 import xyz.skywind.tools.Delay
+import xyz.skywind.tools.Logging
 import xyz.skywind.tools.Time
-import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.function.Supplier
+import java.util.logging.Level
 
-class PromotionTask(private val roleGetter: Callable<Role>,
+class PromotionTask(private val stateGetter: Supplier<State>,
                     private val cfg: Config,
                     private val logging: LifecycleLogging,
-                    private val scheduler: Scheduler,
                     private val executeWhenFollower: Runnable,
                     private val executeWhenCandidate: Runnable,
                     private val executeWhenLeader: Runnable) {
+
+    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
     @Volatile
     private var nextExecutionTime: Long = Time.now()
 
     fun start() {
-        check(roleGetter.call() == Role.FOLLOWER) { "Expected to start as a ${Role.FOLLOWER}" }
+        check(stateGetter.get().role == Role.FOLLOWER) { "Expected to start as a ${Role.FOLLOWER}" }
 
         resetElectionTimeout()
 
-        scheduler.runPeriodically(5, Tick())
+        executor.scheduleAtFixedRate(Tick(), 5, 5, TimeUnit.MILLISECONDS)
     }
 
     fun resetElectionTimeout() {
-        check(roleGetter.call() == Role.FOLLOWER) { "Self promotion requires ${Role.FOLLOWER} role" }
+        check(stateGetter.get().role == Role.FOLLOWER) { "Self promotion requires ${Role.FOLLOWER} role" }
 
         val electionTimeout = getRandomElectionTimeout()
         nextExecutionTime = Time.now() + electionTimeout
-        logging.awaitingSelfPromotion(electionTimeout)
+
+        if (stateGetter.get().leader == null) {
+            logging.awaitingSelfPromotion(electionTimeout)
+        }
     }
 
     private fun execute() {
         check(Time.now() >= nextExecutionTime) { "Attempt to execute task before the specified time" }
 
-        val role = roleGetter.call()
-        checkNotNull(role)
-
-        when (role) {
+        nextExecutionTime = when (stateGetter.get().role) {
             Role.FOLLOWER -> {
                 executeWhenFollower.run()
-                nextExecutionTime = Time.now() + cfg.electionTimeoutMaxMs
+                Time.now() + cfg.electionTimeoutMaxMs
             }
             Role.CANDIDATE -> {
                 executeWhenCandidate.run()
-                nextExecutionTime = Time.now() + getRandomElectionTimeout()
+                Time.now() + getRandomElectionTimeout()
             }
             Role.LEADER -> {
                 executeWhenLeader.run()
-                nextExecutionTime = Time.now() + cfg.heartbeatTickPeriod
+                Time.now() + cfg.heartbeatTickPeriod
             }
         }
     }
@@ -65,7 +69,12 @@ class PromotionTask(private val roleGetter: Callable<Role>,
             val nextCheckTimeBefore = nextExecutionTime
 
             if (Time.now() >= nextCheckTimeBefore) {
-                execute()
+                try {
+                    execute()
+                } catch (e: Throwable) {
+                    Logging.getLogger("system").log(Level.SEVERE, e.stackTraceToString())
+                    throw e
+                }
 
                 check(nextExecutionTime > nextCheckTimeBefore) { "PromotionTask execution must change the timer" }
             }

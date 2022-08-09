@@ -4,19 +4,19 @@ import xyz.skywind.raft.rpc.*
 import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.tools.Delay
+import xyz.skywind.tools.Logging
 import java.util.*
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 import java.util.logging.Level
-import java.util.logging.Logger
 
 class Network {
 
     companion object {
         const val MESSAGE_DELIVERY_DELAY_MILLIS = 5
-        const val MESSAGE_LOSS_PROBABILITY = 0.03
-        const val MESSAGE_DUPLICATION_PROBABILITY = 0.03
+        const val MESSAGE_LOSS_PROBABILITY = 0
+        const val MESSAGE_DUPLICATION_PROBABILITY = 0
+        const val PARTITIONS_ENABLED = true
     }
 
     private val nodes: MutableList<Node> = ArrayList()
@@ -26,11 +26,15 @@ class Network {
     @Volatile
     private var masks: MutableMap<NodeID, Int> = HashMap()
 
-    private var networkDelayMillis = AtomicInteger(5)
-
-    private val logger = Logger.getLogger("network")
+    private val logger = Logging.getLogger("network")
 
     private val random = Random()
+
+    fun start() {
+        if (PARTITIONS_ENABLED) {
+            startNetworkPartitioner()
+        }
+    }
 
     fun connect(node: Node) {
         for (n in nodes)
@@ -45,7 +49,7 @@ class Network {
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
-                    processLeaderHeartbeat(from, node, request, callback)
+                    sendLeaderHeartbeat(from, node, request, callback)
                 }
             }
         }
@@ -55,13 +59,24 @@ class Network {
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
-                    processVoteRequest(from, node, request, callback)
+                    sendVoteRequest(from, node, request, callback)
                 }
             }
         }
     }
 
-    fun randomPartition() {
+    private fun startNetworkPartitioner() {
+        Thread {
+            while (true) {
+                Thread.sleep(Delay.between(5_000, 8_000).toLong())
+                randomPartition()
+                Thread.sleep(Delay.between(100, 10_000).toLong())
+                connectAll()
+            }
+        }.start()
+    }
+
+    private fun randomPartition() {
         val rnd = Random()
 
         val numOfPartitions = rnd.nextInt(2, nodes.size + 1)
@@ -75,7 +90,7 @@ class Network {
         logger.log(Level.WARNING, ">> Network partition happened: ${prettifyPartitions()} <<")
     }
 
-    fun connectAll() {
+    private fun connectAll() {
         val newMask = HashMap<NodeID, Int>()
         for (nodeID in masks.keys) {
             newMask[nodeID] = 0
@@ -101,39 +116,56 @@ class Network {
         return masks[node1] == masks[node2]
     }
 
-    private fun processVoteRequest(from: NodeID, node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
+    private fun sendVoteRequest(from: NodeID, node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
         CompletableFuture.runAsync {
-            Thread.sleep(Delay.upTo(networkDelayMillis.get()).toLong())
-
             if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
-                logger.warning("Request $request from $from to ${node.nodeID} is lost")
+                logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
                 return@runAsync
             }
 
-            callback.accept(node.process(request))
+            execute(node, request, callback)
 
             if (random.nextDouble() < MESSAGE_DUPLICATION_PROBABILITY) {
-                logger.warning("Request $request from $from to ${node.nodeID} is duplicated")
-                callback.accept(node.process(request))
+                logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is duplicated")
+                execute(node, request, callback)
             }
-        }
+        }.logErrorsTo(logger)
     }
 
-    private fun processLeaderHeartbeat(from: NodeID, node: Node, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
+    private fun sendLeaderHeartbeat(from: NodeID, node: Node, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
         CompletableFuture.runAsync {
-            Thread.sleep(Delay.upTo(networkDelayMillis.get()).toLong())
-
             if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
-                logger.warning("Request $request from $from to ${node.nodeID} is lost")
+                logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
                 return@runAsync
             }
 
-            callback.accept(node.process(request))
+            execute(node, request, callback)
 
             if (random.nextDouble() < MESSAGE_DUPLICATION_PROBABILITY) {
-                logger.warning("Request $request from $from to ${node.nodeID} is duplicated")
-                callback.accept(node.process(request))
+                logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is duplicated")
+                execute(node, request, callback)
             }
-        }
+        }.logErrorsTo(logger)
+    }
+
+    private fun execute(node: Node, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
+        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        val response = node.process(request)
+        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        callback.accept(response)
+    }
+
+    private fun execute(node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
+        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        val response = node.process(request)
+        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        callback.accept(response)
+    }
+}
+
+private fun <T> CompletableFuture<T>.logErrorsTo(logger: Logging.MyLogger) {
+    exceptionally {
+        logger.log(Level.SEVERE, it.stackTraceToString())
+        null
     }
 }
