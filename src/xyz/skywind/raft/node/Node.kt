@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node
 
-import xyz.skywind.raft.msg.*
+import xyz.skywind.raft.rpc.*
 
 interface Node {
 
@@ -8,11 +8,7 @@ interface Node {
 
     fun start()
 
-    fun handle(msg: VoteRequest)
+    fun process(req: VoteRequest): VoteResponse
 
-    fun handle(msg: VoteResponse)
-
-    fun handle(msg: LeaderHeartbeat)
-
-    fun handle(msg: HeartbeatResponse)
+    fun process(req: LeaderHeartbeat): HeartbeatResponse
 }

@@ -9,8 +9,6 @@ import xyz.skywind.tools.Delay
 
 object Demo {
 
-    private const val NETWORK_PARTITIONS_ENABLED = true
-
     @JvmStatic
     fun main(args: Array<String>) {
         // setup logging
@@ -28,29 +26,13 @@ object Demo {
                 heartbeatTimeoutMs = 3_000
         )
 
-        val cluster = Cluster(config)
+        val cluster = Cluster(config, network)
         for (i in 1..config.nodeCount) {
             val node = NodeImpl(NodeID("n$i"), config, network)
 
             cluster.add(node)
-            network.connect(node)
         }
 
         cluster.start()
-
-        if (NETWORK_PARTITIONS_ENABLED) {
-            startNetworkPartitioner(network)
-        }
-    }
-
-    private fun startNetworkPartitioner(network: Network) {
-        Thread {
-            while (true) {
-                Thread.sleep(Delay.between(5_000, 8_000).toLong())
-                network.randomPartition()
-                Thread.sleep(Delay.between(100, 10_000).toLong())
-                network.connectAll()
-            }
-        }.start()
     }
 }
