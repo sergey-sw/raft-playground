@@ -12,15 +12,15 @@ object RaftAssertions {
             "Assertion failed. " +
                     "We already checked that node did not vote in msg.term = ${req.candidateTerm}. " +
                     "Node is in Candidate or Leader state which means it made a vote for " +
-                    "itself (${state.vote}) in state.term = ${state.term}. " +
+                    "itself (${state.voteInfo?.vote}) in state.term = ${state.term}. " +
                     "We can reach this code path only if VoteRequest.term is higher that State.term"
         }
     }
 
     fun verifyNodeDidNotVoteInTerm(state: State, voteTerm: Term, candidate: NodeID) {
         if (voteTerm == state.term)
-            check(state.vote == null) {
-                "Assertion failed. Tried to vote for $candidate, though already voted for ${state.vote} " +
+            check(state.voteInfo == null) {
+                "Assertion failed. Tried to vote for $candidate, though already voted for ${state.voteInfo?.vote} " +
                         "in term ${state.term}. Expected to vote only once in a term."
             }
     }

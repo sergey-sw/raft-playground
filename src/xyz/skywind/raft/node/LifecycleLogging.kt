@@ -28,7 +28,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
 
     fun rejectVoteRequest(state: State, msg: VoteRequest) {
         log(Level.INFO, "Rejecting VoteRequest from ${msg.candidate} in term ${msg.candidateTerm}. " +
-                "Node is ${state.role} in term ${state.term}, votedFor=${state.vote}")
+                "Node is ${state.role} in term ${state.term}, votedFor=${state.voteInfo?.vote}")
     }
 
     fun receivedVoteResponseInFollowerState(state: State, response: VoteResponse) {
@@ -49,14 +49,6 @@ class LifecycleLogging(private val nodeID: NodeID) {
 
     fun candidateAcceptsVoteResponse(state: State, response: VoteResponse) {
         log(Level.INFO, "Accepting VoteResponse{granted=${response.granted}} in term ${state.term} from follower ${response.voter}")
-    }
-
-    fun afterAcceptedVote(state: State) {
-        check(state.role != Role.FOLLOWER) { "Expected to be ${Role.LEADER} or ${Role.CANDIDATE}" }
-        if (state.role == Role.CANDIDATE)
-            log(Level.INFO, "Node is still candidate in term ${state.term}, followers: ${state.followers()}")
-        else if (state.role == Role.LEADER)
-            log(Level.INFO, "Node $nodeID became leader in term ${state.term} with followers: ${state.followers()}")
     }
 
     fun candidateAfterAcceptedVote(state: State) {

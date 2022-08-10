@@ -34,7 +34,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
             logging.rejectVoteRequest(state, req)
             return VoteResponse(granted = false, requestTerm = req.candidateTerm, voter = nodeID, voterTerm = state.term)
         } else if (state.votedInThisTerm(req.candidateTerm)) {
-            return VoteResponse(granted = (state.vote == req.candidate), requestTerm = state.term, voter = nodeID, voterTerm = state.term)
+            return VoteResponse(granted = state.votedFor(req.candidate), requestTerm = state.term, voter = nodeID, voterTerm = state.term)
         }
 
         if (state.role == Role.FOLLOWER) {

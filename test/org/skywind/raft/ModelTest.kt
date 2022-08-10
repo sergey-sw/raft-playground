@@ -5,6 +5,7 @@ import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
 import xyz.skywind.raft.node.State.LeaderInfo
+import xyz.skywind.raft.node.State.VoteInfo
 import xyz.skywind.raft.node.Term
 import xyz.skywind.raft.utils.States
 import xyz.skywind.tools.Time
@@ -49,8 +50,7 @@ object ModelTest {
     private fun testState() {
         State(
                 term = Term(1),
-                vote = NodeID("1"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("1"), Time.now()),
                 role = Role.CANDIDATE,
                 leaderInfo = null,
                 followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
@@ -58,8 +58,7 @@ object ModelTest {
 
         State(
                 term = Term(1),
-                vote = NodeID("1"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("1"), Time.now()),
                 role = Role.LEADER,
                 leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
                 followerHeartbeats = mapOf(
@@ -93,8 +92,7 @@ object ModelTest {
     private fun testOkFollowerStates() {
         State(
                 term = Term(1),
-                vote = null,
-                votedAt = null,
+                voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
                 mapOf()
@@ -102,8 +100,7 @@ object ModelTest {
 
         State(
                 term = Term(1),
-                vote = NodeID("123"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("123"), Time.now()),
                 role = Role.FOLLOWER,
                 leaderInfo = null,
                 mapOf()
@@ -111,8 +108,7 @@ object ModelTest {
 
         State(
                 term = Term(1),
-                vote = NodeID("123"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("123"), Time.now()),
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
                 mapOf()
@@ -123,8 +119,7 @@ object ModelTest {
         try {
             State(
                     term = Term(1),
-                    vote = null,
-                    votedAt = null,
+                    voteInfo = null,
                     role = Role.FOLLOWER,
                     leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
@@ -139,8 +134,7 @@ object ModelTest {
         try {
             State(
                     term = Term(1),
-                    vote = NodeID("123"),
-                    votedAt = Time.now(),
+                    voteInfo = VoteInfo(NodeID("123"), Time.now()),
                     role = Role.CANDIDATE,
                     leaderInfo = null,
                     followerHeartbeats = mapOf()
@@ -155,8 +149,7 @@ object ModelTest {
         try {
             State(
                     term = Term(1),
-                    vote = null,
-                    votedAt = null,
+                    voteInfo = null,
                     role = Role.CANDIDATE,
                     leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
@@ -171,8 +164,7 @@ object ModelTest {
         try {
             State(
                     term = Term(1),
-                    vote = NodeID("123"),
-                    votedAt = Time.now(),
+                    voteInfo = VoteInfo(NodeID("123"), Time.now()),
                     role = Role.LEADER,
                     leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
                     followerHeartbeats = mapOf()
@@ -187,8 +179,7 @@ object ModelTest {
         try {
             State(
                     term = Term(1),
-                    vote = NodeID("123"),
-                    votedAt = Time.now(),
+                    voteInfo = VoteInfo(NodeID("123"), Time.now()),
                     role = Role.LEADER,
                     leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
                     followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
@@ -203,8 +194,7 @@ object ModelTest {
         try {
             State(
                     term = Term(1),
-                    vote = null,
-                    votedAt = null,
+                    voteInfo = null,
                     role = Role.CANDIDATE,
                     leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
                     followerHeartbeats = mapOf(
@@ -222,8 +212,7 @@ object ModelTest {
         try {
             State(
                     term = Term(0),
-                    vote = null,
-                    votedAt = null,
+                    voteInfo = null,
                     role = Role.LEADER,
                     leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
@@ -238,8 +227,7 @@ object ModelTest {
         try {
             State(
                     term = Term(0),
-                    vote = null,
-                    votedAt = null,
+                    voteInfo = null,
                     role = Role.CANDIDATE,
                     leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
@@ -253,8 +241,7 @@ object ModelTest {
     private fun testFollowerIsAllowedZeroTerm() {
         State(
                 term = Term(num = 0),
-                vote = null,
-                votedAt = null,
+                voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
                 followerHeartbeats = mapOf()
@@ -265,8 +252,7 @@ object ModelTest {
         try {
             State(
                     term = Term(10),
-                    vote = NodeID("candidate"),
-                    votedAt = Time.now(),
+                    voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
                     leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                     role = Role.CANDIDATE,
                     followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()))
@@ -281,8 +267,7 @@ object ModelTest {
         try {
             State(
                     term = Term(10),
-                    vote = NodeID("leader"),
-                    votedAt = Time.now(),
+                    voteInfo = VoteInfo(NodeID("leader"), Time.now()),
                     leaderInfo = null,
                     role = Role.LEADER,
                     followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()), Pair(NodeID("leader"), Time.now()))
@@ -297,8 +282,7 @@ object ModelTest {
         try {
             State(
                     term = Term(10),
-                    vote = NodeID("c1"),
-                    votedAt = Time.now(),
+                    voteInfo = VoteInfo(NodeID("c1"), Time.now()),
                     leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                     role = Role.LEADER,
                     followerHeartbeats = mapOf(Pair(NodeID("c1"), Time.now()), Pair(NodeID("c2"), Time.now()))
@@ -312,8 +296,7 @@ object ModelTest {
     private fun testStateCopy() {
         val state = State(
                 term = Term(0),
-                vote = null,
-                votedAt = null,
+                voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("3"), Time.now()),
                 followerHeartbeats = mapOf()
@@ -352,8 +335,7 @@ object ModelTest {
     private fun testOnlyFollowerShouldPromote(cfg: Config) {
         val candidateState = State(
                 term = Term(10),
-                vote = NodeID("candidate"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
                 role = Role.CANDIDATE,
                 leaderInfo = null,
                 followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()))
@@ -363,8 +345,7 @@ object ModelTest {
 
         val leaderState = State(
                 term = Term(10),
-                vote = NodeID("leader"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("leader"), Time.now()),
                 role = Role.LEADER,
                 leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                 followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()), Pair(NodeID("leader"), Time.now()))
@@ -376,8 +357,7 @@ object ModelTest {
     private fun testFollowerShouldPromoteWithoutLeader(cfg: Config) {
         val followerState = State(
                 term = Term(10),
-                vote = null,
-                votedAt = null,
+                voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
                 followerHeartbeats = mapOf()
@@ -388,8 +368,7 @@ object ModelTest {
     private fun testFollowerShouldNotPromoteWithActiveLeader(cfg: Config) {
         val followerState = State(
                 term = Term(10),
-                vote = NodeID("leader"),
-                votedAt = Time.now(),
+                voteInfo = VoteInfo(NodeID("leader"), Time.now()),
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - (cfg.heartbeatTimeoutMs / 2)),
                 followerHeartbeats = mapOf()
@@ -400,8 +379,7 @@ object ModelTest {
     private fun testFollowerShouldPromoteWithStaleLeader(cfg: Config) {
         val followerState = State(
                 term = Term(10),
-                vote = NodeID("leader"),
-                votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs,
+                voteInfo = VoteInfo(NodeID("leader"), votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs),
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - cfg.heartbeatTimeoutMs * 3 / 2),
                 followerHeartbeats = mapOf()
@@ -412,8 +390,7 @@ object ModelTest {
     private fun testFollowerShouldNotPromoteIfVotedRecently(cfg: Config) {
         val followerState = State(
                 term = Term(10),
-                vote = NodeID("candidate"),
-                votedAt = Time.now() - cfg.electionTimeoutMinMs / 5,
+                voteInfo = VoteInfo(NodeID("candidate"), votedAt = Time.now() - cfg.electionTimeoutMinMs / 5),
                 role = Role.FOLLOWER,
                 leaderInfo = null,
                 followerHeartbeats = mapOf()
