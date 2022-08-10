@@ -36,7 +36,7 @@ class PromotionTask(private val stateGetter: Supplier<State>,
         val electionTimeout = getRandomElectionTimeout()
         nextExecutionTime = Time.now() + electionTimeout
 
-        if (stateGetter.get().leader == null) {
+        if (stateGetter.get().leaderInfo == null) {
             logging.awaitingSelfPromotion(electionTimeout)
         }
     }

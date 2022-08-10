@@ -85,7 +85,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
     @Synchronized
     override fun process(req: LeaderHeartbeat): HeartbeatResponse {
-        if (state.term == req.term && state.leader == req.leader) {
+        if (state.term == req.term && state.leaderInfo?.leader == req.leader) {
             state = States.updateLeaderHeartbeat(state)
             return HeartbeatResponse(ok = true, follower = nodeID, followerTerm = state.term)
         } else if (state.canAcceptTerm(req.term)) {

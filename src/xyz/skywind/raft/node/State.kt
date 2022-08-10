@@ -8,9 +8,10 @@ data class State(
         val vote: NodeID?,
         val votedAt: Long?,
         val role: Role,
-        val leader: NodeID?,
-        val lastLeaderHeartbeatTs: Long,
+        val leaderInfo: LeaderInfo?,
         val followerHeartbeats: Map<NodeID, Long>) {
+
+    data class LeaderInfo(val leader: NodeID, val lastHeartbeatTs: Long)
 
     // second constructor that accepts prev state for default values
     companion object {
@@ -19,10 +20,9 @@ data class State(
                             vote: NodeID? = s.vote,
                             votedAt: Long? = s.votedAt,
                             role: Role = s.role,
-                            leader: NodeID? = s.leader,
-                            lastLeaderHeartbeatTs: Long = s.lastLeaderHeartbeatTs,
+                            leader: LeaderInfo? = s.leaderInfo,
                             followerHeartbeats: Map<NodeID, Long> = s.followerHeartbeats): State {
-            return State(term, vote, votedAt, role, leader, lastLeaderHeartbeatTs, followerHeartbeats)
+            return State(term, vote, votedAt, role, leader, followerHeartbeats)
         }
     }
 
@@ -30,7 +30,7 @@ data class State(
         if (role == Role.CANDIDATE) {
             check(followerHeartbeats.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
             check(term.num > 0) { "Candidate can't have 0 term" }
-            check(leader == null) { "Candidate can't have active leader" }
+            check(leaderInfo == null) { "Candidate can't have active leader" }
             checkNotNull(vote) { "Candidate should vote for itself" }
             checkNotNull(votedAt) { "Candidate should have vote time" }
             check(votedAt > 0) { "Candidate should have vote time" }
@@ -43,7 +43,7 @@ data class State(
                 checkNotNull(votedAt) { "If follower voted, votedAt should be set" }
                 check(votedAt > 0) { "If follower voted, votedAt should be set" }
             } else {
-                check(votedAt == null) { "If vote is not set, votedAt should not be set"}
+                check(votedAt == null) { "If vote is not set, votedAt should not be set" }
             }
         }
 
@@ -53,8 +53,8 @@ data class State(
             checkNotNull(vote) { "Leader should have a vote for itself" }
             checkNotNull(votedAt) { "Leader should have vote time" }
             check(votedAt > 0) { "Leader should have vote time" }
-            checkNotNull(leader) { "Leader should have leader property set" }
-            check(vote == leader) { "Chosen leader should vote for itself" }
+            checkNotNull(leaderInfo) { "Leader should have leader property set" }
+            check(vote == leaderInfo.leader) { "Chosen leader should vote for itself" }
             check(followerHeartbeats.contains(vote)) { "Candidate should have a vote for itself" }
         }
     }
@@ -77,8 +77,8 @@ data class State(
             return false
         }
 
-        val noLeaderInCluster = leader == null
-        val noLeaderHeartbeat = Time.now() - lastLeaderHeartbeatTs > cfg.heartbeatTimeoutMs
+        val noLeaderInCluster = leaderInfo == null
+        val noLeaderHeartbeat = leaderInfo != null && Time.now() - leaderInfo.lastHeartbeatTs > cfg.heartbeatTimeoutMs
 
         return noLeaderInCluster || noLeaderHeartbeat
     }
@@ -93,7 +93,7 @@ data class State(
         for (followerHeartbeat in followerHeartbeats) {
             follower2delay[followerHeartbeat.key] = Time.now() - followerHeartbeat.value
         }
-        follower2delay.remove(leader)
+        follower2delay.remove(leaderInfo?.leader)
 
         return follower2delay
     }

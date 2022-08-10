@@ -4,6 +4,7 @@ import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
+import xyz.skywind.raft.node.State.LeaderInfo
 import xyz.skywind.raft.node.Term
 import xyz.skywind.raft.utils.States
 import xyz.skywind.tools.Time
@@ -51,8 +52,7 @@ object ModelTest {
                 vote = NodeID("1"),
                 votedAt = Time.now(),
                 role = Role.CANDIDATE,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
         )
 
@@ -61,8 +61,7 @@ object ModelTest {
                 vote = NodeID("1"),
                 votedAt = Time.now(),
                 role = Role.LEADER,
-                leader = NodeID("1"),
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
                 followerHeartbeats = mapOf(
                         Pair(NodeID("1"), Time.now()),
                         Pair(NodeID("2"), Time.now()),
@@ -97,8 +96,7 @@ object ModelTest {
                 vote = null,
                 votedAt = null,
                 role = Role.FOLLOWER,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 mapOf()
         )
 
@@ -107,8 +105,7 @@ object ModelTest {
                 vote = NodeID("123"),
                 votedAt = Time.now(),
                 role = Role.FOLLOWER,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 mapOf()
         )
 
@@ -117,8 +114,7 @@ object ModelTest {
                 vote = NodeID("123"),
                 votedAt = Time.now(),
                 role = Role.FOLLOWER,
-                leader = NodeID("123"),
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
                 mapOf()
         )
     }
@@ -130,8 +126,7 @@ object ModelTest {
                     vote = null,
                     votedAt = null,
                     role = Role.FOLLOWER,
-                    leader = null,
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
             )
             throw AssertionError("Expected to fail if follower has followers")
@@ -147,8 +142,7 @@ object ModelTest {
                     vote = NodeID("123"),
                     votedAt = Time.now(),
                     role = Role.CANDIDATE,
-                    leader = null,
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = null,
                     followerHeartbeats = mapOf()
             )
             throw AssertionError("Expected to fail if candidate does not follow self")
@@ -164,8 +158,7 @@ object ModelTest {
                     vote = null,
                     votedAt = null,
                     role = Role.CANDIDATE,
-                    leader = null,
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
             )
             throw AssertionError("Expected to fail if candidate does not vote for itself")
@@ -181,8 +174,7 @@ object ModelTest {
                     vote = NodeID("123"),
                     votedAt = Time.now(),
                     role = Role.LEADER,
-                    leader = NodeID("123"),
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
                     followerHeartbeats = mapOf()
             )
             throw AssertionError("Expected to fail if leader does not follow self")
@@ -198,8 +190,7 @@ object ModelTest {
                     vote = NodeID("123"),
                     votedAt = Time.now(),
                     role = Role.LEADER,
-                    leader = NodeID("123"),
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
                     followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
             )
             throw AssertionError("Expected to fail if leader does not have at least 2 followers")
@@ -215,8 +206,7 @@ object ModelTest {
                     vote = null,
                     votedAt = null,
                     role = Role.CANDIDATE,
-                    leader = NodeID("1"),
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
                     followerHeartbeats = mapOf(
                             Pair(NodeID("1"), Time.now()),
                             Pair(NodeID("2"), Time.now())
@@ -235,8 +225,7 @@ object ModelTest {
                     vote = null,
                     votedAt = null,
                     role = Role.LEADER,
-                    leader = null,
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
             )
             throw AssertionError("Expected to fail if leader has term equal 0")
@@ -252,8 +241,7 @@ object ModelTest {
                     vote = null,
                     votedAt = null,
                     role = Role.CANDIDATE,
-                    leader = null,
-                    lastLeaderHeartbeatTs = 0,
+                    leaderInfo = null,
                     followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
             )
             throw AssertionError("Expected to fail if candidate has term equal 0")
@@ -268,8 +256,7 @@ object ModelTest {
                 vote = null,
                 votedAt = null,
                 role = Role.FOLLOWER,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 followerHeartbeats = mapOf()
         )
     }
@@ -280,9 +267,8 @@ object ModelTest {
                     term = Term(10),
                     vote = NodeID("candidate"),
                     votedAt = Time.now(),
-                    leader = NodeID("leader"),
+                    leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                     role = Role.CANDIDATE,
-                    lastLeaderHeartbeatTs = Time.now(),
                     followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()))
             )
             throw AssertionError("Expected to fail if candidate has leader property")
@@ -297,9 +283,8 @@ object ModelTest {
                     term = Term(10),
                     vote = NodeID("leader"),
                     votedAt = Time.now(),
-                    leader = null,
+                    leaderInfo = null,
                     role = Role.LEADER,
-                    lastLeaderHeartbeatTs = Time.now(),
                     followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()), Pair(NodeID("leader"), Time.now()))
             )
             throw AssertionError("Expected to fail if leader has unset leader property")
@@ -314,9 +299,8 @@ object ModelTest {
                     term = Term(10),
                     vote = NodeID("c1"),
                     votedAt = Time.now(),
-                    leader = NodeID("leader"),
+                    leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                     role = Role.LEADER,
-                    lastLeaderHeartbeatTs = Time.now(),
                     followerHeartbeats = mapOf(Pair(NodeID("c1"), Time.now()), Pair(NodeID("c2"), Time.now()))
             )
             throw AssertionError("Expected to fail if leader voted for other node")
@@ -331,8 +315,7 @@ object ModelTest {
                 vote = null,
                 votedAt = null,
                 role = Role.FOLLOWER,
-                leader = NodeID("3"),
-                lastLeaderHeartbeatTs = Time.now(),
+                leaderInfo = LeaderInfo(NodeID("3"), Time.now()),
                 followerHeartbeats = mapOf()
         )
 
@@ -340,7 +323,7 @@ object ModelTest {
         val copy = State(state, copyTerm)
 
         if (copy.term != copyTerm || copy.role != state.role
-                || copy.leader != state.leader || copy.lastLeaderHeartbeatTs != state.lastLeaderHeartbeatTs
+                || copy.leaderInfo != state.leaderInfo
                 || copy.followerHeartbeats != state.followerHeartbeats) {
             throw AssertionError("State 'copy' constructor does not work")
         }
@@ -372,8 +355,7 @@ object ModelTest {
                 vote = NodeID("candidate"),
                 votedAt = Time.now(),
                 role = Role.CANDIDATE,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()))
         )
 
@@ -384,8 +366,7 @@ object ModelTest {
                 vote = NodeID("leader"),
                 votedAt = Time.now(),
                 role = Role.LEADER,
-                leader = NodeID("leader"),
-                lastLeaderHeartbeatTs = Time.now(),
+                leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                 followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()), Pair(NodeID("leader"), Time.now()))
         )
 
@@ -398,8 +379,7 @@ object ModelTest {
                 vote = null,
                 votedAt = null,
                 role = Role.FOLLOWER,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 followerHeartbeats = mapOf()
         )
         check(followerState.needSelfPromotion(cfg))
@@ -411,8 +391,7 @@ object ModelTest {
                 vote = NodeID("leader"),
                 votedAt = Time.now(),
                 role = Role.FOLLOWER,
-                leader = NodeID("leader"),
-                lastLeaderHeartbeatTs = Time.now() - (cfg.heartbeatTimeoutMs / 2),
+                leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - (cfg.heartbeatTimeoutMs / 2)),
                 followerHeartbeats = mapOf()
         )
         check(!followerState.needSelfPromotion(cfg))
@@ -424,8 +403,7 @@ object ModelTest {
                 vote = NodeID("leader"),
                 votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs,
                 role = Role.FOLLOWER,
-                leader = NodeID("leader"),
-                lastLeaderHeartbeatTs = Time.now() - cfg.heartbeatTimeoutMs * 3 / 2,
+                leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - cfg.heartbeatTimeoutMs * 3 / 2),
                 followerHeartbeats = mapOf()
         )
         check(followerState.needSelfPromotion(cfg))
@@ -437,8 +415,7 @@ object ModelTest {
                 vote = NodeID("candidate"),
                 votedAt = Time.now() - cfg.electionTimeoutMinMs / 5,
                 role = Role.FOLLOWER,
-                leader = null,
-                lastLeaderHeartbeatTs = 0,
+                leaderInfo = null,
                 followerHeartbeats = mapOf()
         )
         check(!followerState.needSelfPromotion(cfg))
