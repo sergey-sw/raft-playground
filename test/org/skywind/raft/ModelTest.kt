@@ -4,8 +4,7 @@ import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
-import xyz.skywind.raft.node.State.LeaderInfo
-import xyz.skywind.raft.node.State.VoteInfo
+import xyz.skywind.raft.node.State.*
 import xyz.skywind.raft.node.Term
 import xyz.skywind.raft.utils.States
 import xyz.skywind.tools.Time
@@ -53,7 +52,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("1"), Time.now()),
                 role = Role.CANDIDATE,
                 leaderInfo = null,
-                followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
+                followers = makeFollowers("1")
         )
 
         State(
@@ -61,11 +60,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("1"), Time.now()),
                 role = Role.LEADER,
                 leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
-                followerHeartbeats = mapOf(
-                        Pair(NodeID("1"), Time.now()),
-                        Pair(NodeID("2"), Time.now()),
-                        Pair(NodeID("3"), Time.now())
-                )
+                followers = makeFollowers("1", "2", "3")
         )
 
         testOkFollowerStates()
@@ -122,7 +117,7 @@ object ModelTest {
                     voteInfo = null,
                     role = Role.FOLLOWER,
                     leaderInfo = null,
-                    followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
+                    followers = makeFollowers("1")
             )
             throw AssertionError("Expected to fail if follower has followers")
         } catch (e: IllegalStateException) {
@@ -137,7 +132,7 @@ object ModelTest {
                     voteInfo = VoteInfo(NodeID("123"), Time.now()),
                     role = Role.CANDIDATE,
                     leaderInfo = null,
-                    followerHeartbeats = mapOf()
+                    followers = mapOf()
             )
             throw AssertionError("Expected to fail if candidate does not follow self")
         } catch (e: IllegalStateException) {
@@ -152,7 +147,7 @@ object ModelTest {
                     voteInfo = null,
                     role = Role.CANDIDATE,
                     leaderInfo = null,
-                    followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
+                    followers = makeFollowers("123")
             )
             throw AssertionError("Expected to fail if candidate does not vote for itself")
         } catch (e: IllegalStateException) {
@@ -167,7 +162,7 @@ object ModelTest {
                     voteInfo = VoteInfo(NodeID("123"), Time.now()),
                     role = Role.LEADER,
                     leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
-                    followerHeartbeats = mapOf()
+                    followers = mapOf()
             )
             throw AssertionError("Expected to fail if leader does not follow self")
         } catch (e: IllegalStateException) {
@@ -182,7 +177,7 @@ object ModelTest {
                     voteInfo = VoteInfo(NodeID("123"), Time.now()),
                     role = Role.LEADER,
                     leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
-                    followerHeartbeats = mapOf(Pair(NodeID("1"), Time.now()))
+                    followers = makeFollowers("1")
             )
             throw AssertionError("Expected to fail if leader does not have at least 2 followers")
         } catch (e: IllegalStateException) {
@@ -197,10 +192,7 @@ object ModelTest {
                     voteInfo = null,
                     role = Role.CANDIDATE,
                     leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
-                    followerHeartbeats = mapOf(
-                            Pair(NodeID("1"), Time.now()),
-                            Pair(NodeID("2"), Time.now())
-                    )
+                    followers = makeFollowers("1", "2")
             )
             throw AssertionError("Expected to fail if leader does not vote for itself")
         } catch (e: IllegalStateException) {
@@ -215,7 +207,7 @@ object ModelTest {
                     voteInfo = null,
                     role = Role.LEADER,
                     leaderInfo = null,
-                    followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
+                    followers = makeFollowers("123")
             )
             throw AssertionError("Expected to fail if leader has term equal 0")
         } catch (e: IllegalStateException) {
@@ -230,7 +222,7 @@ object ModelTest {
                     voteInfo = null,
                     role = Role.CANDIDATE,
                     leaderInfo = null,
-                    followerHeartbeats = mapOf(Pair(NodeID("123"), Time.now()))
+                    followers = makeFollowers("123")
             )
             throw AssertionError("Expected to fail if candidate has term equal 0")
         } catch (e: IllegalStateException) {
@@ -244,7 +236,7 @@ object ModelTest {
                 voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
     }
 
@@ -255,7 +247,7 @@ object ModelTest {
                     voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
                     leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                     role = Role.CANDIDATE,
-                    followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()))
+                    followers = makeFollowers("candidate")
             )
             throw AssertionError("Expected to fail if candidate has leader property")
         } catch (e: IllegalStateException) {
@@ -270,7 +262,7 @@ object ModelTest {
                     voteInfo = VoteInfo(NodeID("leader"), Time.now()),
                     leaderInfo = null,
                     role = Role.LEADER,
-                    followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()), Pair(NodeID("leader"), Time.now()))
+                    followers = makeFollowers("candidate", "leader")
             )
             throw AssertionError("Expected to fail if leader has unset leader property")
         } catch (e: IllegalStateException) {
@@ -285,7 +277,7 @@ object ModelTest {
                     voteInfo = VoteInfo(NodeID("c1"), Time.now()),
                     leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
                     role = Role.LEADER,
-                    followerHeartbeats = mapOf(Pair(NodeID("c1"), Time.now()), Pair(NodeID("c2"), Time.now()))
+                    followers = makeFollowers("c1", "c2")
             )
             throw AssertionError("Expected to fail if leader voted for other node")
         } catch (e: IllegalStateException) {
@@ -299,7 +291,7 @@ object ModelTest {
                 voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("3"), Time.now()),
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
 
         val copyTerm = Term(5)
@@ -307,7 +299,7 @@ object ModelTest {
 
         if (copy.term != copyTerm || copy.role != state.role
                 || copy.leaderInfo != state.leaderInfo
-                || copy.followerHeartbeats != state.followerHeartbeats) {
+                || copy.followers != state.followers) {
             throw AssertionError("State 'copy' constructor does not work")
         }
     }
@@ -338,7 +330,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
                 role = Role.CANDIDATE,
                 leaderInfo = null,
-                followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()))
+                followers = makeFollowers("candidate")
         )
 
         check(!candidateState.needSelfPromotion(cfg)) { "Candidate should not promote" }
@@ -348,7 +340,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("leader"), Time.now()),
                 role = Role.LEADER,
                 leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
-                followerHeartbeats = mapOf(Pair(NodeID("candidate"), Time.now()), Pair(NodeID("leader"), Time.now()))
+                followers = makeFollowers("candidate", "leader")
         )
 
         check(!leaderState.needSelfPromotion(cfg)) { "Candidate should not promote" }
@@ -360,7 +352,7 @@ object ModelTest {
                 voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
         check(followerState.needSelfPromotion(cfg))
     }
@@ -371,7 +363,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("leader"), Time.now()),
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - (cfg.heartbeatTimeoutMs / 2)),
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
         check(!followerState.needSelfPromotion(cfg))
     }
@@ -382,7 +374,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("leader"), votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs),
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - cfg.heartbeatTimeoutMs * 3 / 2),
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
         check(followerState.needSelfPromotion(cfg))
     }
@@ -393,8 +385,17 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("candidate"), votedAt = Time.now() - cfg.electionTimeoutMinMs / 5),
                 role = Role.FOLLOWER,
                 leaderInfo = null,
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
         check(!followerState.needSelfPromotion(cfg))
+    }
+
+    // ---------- //
+    private fun makeFollowers(vararg nodes: String): Map<NodeID, FollowerInfo> {
+        val followers = HashMap<NodeID, FollowerInfo>()
+        for (node in nodes) {
+            followers[NodeID(node)] = FollowerInfo(Time.now(), 0)
+        }
+        return followers
     }
 }

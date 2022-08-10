@@ -109,7 +109,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
                 logging.candidateAcceptsVoteResponse(state, response)
 
                 state = States.addFollower(state, response.voter)
-                if (config.isQuorum(state.followerHeartbeats.size)) {
+                if (config.isQuorum(state.followers.size)) {
                     state = States.candidateBecomesLeader(state, response)
                     logging.leaderAfterAcceptedVote(state)
                     sendHeartbeat()

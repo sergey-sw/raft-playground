@@ -24,10 +24,7 @@ class PromotionTask(private val stateGetter: Supplier<State>,
     private var nextExecutionTime: Timestamp = Time.now()
 
     fun start() {
-        check(stateGetter.get().role == Role.FOLLOWER) { "Expected to start as a ${Role.FOLLOWER}" }
-
         resetElectionTimeout()
-
         executor.scheduleAtFixedRate(Tick(), 5, 5, TimeUnit.MILLISECONDS)
     }
 

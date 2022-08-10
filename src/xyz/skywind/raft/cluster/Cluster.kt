@@ -4,9 +4,11 @@ import xyz.skywind.raft.node.Node
 import xyz.skywind.tools.Logging
 import java.util.logging.Level
 
-class Cluster(private val config: Config, private val network: Network) {
+class Cluster(private val config: Config) {
 
     private val nodes = HashSet<Node>()
+
+    val network = Network()
 
     fun add(node: Node) {
         for (n in nodes) {

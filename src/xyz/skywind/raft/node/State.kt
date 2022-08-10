@@ -9,10 +9,11 @@ data class State(
         val voteInfo: VoteInfo?,
         val role: Role,
         val leaderInfo: LeaderInfo?,
-        val followerHeartbeats: Map<NodeID, Timestamp>) {
+        val followers: Map<NodeID, FollowerInfo>) {
 
     data class LeaderInfo(val leader: NodeID, val lastHeartbeatTs: Timestamp)
     data class VoteInfo(val vote: NodeID, val votedAt: Timestamp)
+    data class FollowerInfo(val heartbeatTs: Timestamp, val nextIndex: Int)
 
     // second constructor that accepts prev state for default values
     companion object {
@@ -21,31 +22,31 @@ data class State(
                             voteInfo: VoteInfo? = s.voteInfo,
                             role: Role = s.role,
                             leader: LeaderInfo? = s.leaderInfo,
-                            followerHeartbeats: Map<NodeID, Timestamp> = s.followerHeartbeats): State {
+                            followerHeartbeats: Map<NodeID, FollowerInfo> = s.followers): State {
             return State(term, voteInfo, role, leader, followerHeartbeats)
         }
     }
 
     init {
         if (role == Role.CANDIDATE) {
-            check(followerHeartbeats.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
+            check(followers.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
             check(term.num > 0) { "Candidate can't have 0 term" }
             check(leaderInfo == null) { "Candidate can't have active leader" }
             checkNotNull(voteInfo) { "Candidate should vote for itself" }
-            check(followerHeartbeats.contains(voteInfo.vote)) { "Candidate should have a vote for itself" }
+            check(followers.contains(voteInfo.vote)) { "Candidate should have a vote for itself" }
         }
 
         if (role == Role.FOLLOWER) {
-            check(followerHeartbeats.isEmpty()) { "Follower can not have followers" }
+            check(followers.isEmpty()) { "Follower can not have followers" }
         }
 
         if (role == Role.LEADER) {
             check(term.num > 0) { "Leader can't be elected on 0 term" }
-            check(followerHeartbeats.size > 1) { "Leader can not have less than 2 followers (including self)" }
+            check(followers.size > 1) { "Leader can not have less than 2 followers (including self)" }
             checkNotNull(voteInfo) { "Leader should have a vote for itself" }
             checkNotNull(leaderInfo) { "Leader should have leader property set" }
             check(voteInfo.vote == leaderInfo.leader) { "Chosen leader should vote for itself" }
-            check(followerHeartbeats.contains(voteInfo.vote)) { "Candidate should have a vote for itself" }
+            check(followers.contains(voteInfo.vote)) { "Candidate should have a vote for itself" }
         }
     }
 
@@ -78,14 +79,14 @@ data class State(
     }
 
     fun followers(): Set<NodeID> {
-        return followerHeartbeats.keys
+        return followers.keys
     }
 
     fun lastResponseFromFollowers(): HashMap<NodeID, Long> {
         val follower2delay = HashMap<NodeID, Long>()
 
-        for (followerHeartbeat in followerHeartbeats) {
-            follower2delay[followerHeartbeat.key] = Time.now() - followerHeartbeat.value
+        for (follower in followers) {
+            follower2delay[follower.key] = Time.now() - follower.value.heartbeatTs
         }
         follower2delay.remove(leaderInfo?.leader)
 

@@ -6,8 +6,7 @@ import xyz.skywind.raft.rpc.VoteResponse
 import xyz.skywind.raft.node.NodeID
 import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
-import xyz.skywind.raft.node.State.LeaderInfo
-import xyz.skywind.raft.node.State.VoteInfo
+import xyz.skywind.raft.node.State.*
 import xyz.skywind.raft.node.Term
 import xyz.skywind.raft.rpc.HeartbeatResponse
 import xyz.skywind.tools.Time
@@ -20,7 +19,7 @@ object States {
                 voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
-                followerHeartbeats = mapOf()
+                followers = mapOf()
         )
     }
 
@@ -28,14 +27,14 @@ object States {
         check(state.role != Role.FOLLOWER)
 
         return State(term = newTerm, voteInfo = null, role = Role.FOLLOWER,
-                leaderInfo = null, followerHeartbeats = mapOf())
+                leaderInfo = null, followers = mapOf())
     }
 
     fun stepDownToFollowerOnElectionTimeout(state: State): State {
         check(state.role != Role.FOLLOWER)
 
         return State(term = state.term, voteInfo = state.voteInfo, role = Role.FOLLOWER,
-                leaderInfo = null, followerHeartbeats = mapOf())
+                leaderInfo = null, followers = mapOf())
     }
 
     fun fromAnyRoleToFollower(msg: LeaderHeartbeat): State {
@@ -44,17 +43,17 @@ object States {
 
     fun becomeCandidate(state: State, nodeID: NodeID): State {
         return State(term = state.term.inc(), voteInfo = VoteInfo(nodeID, Time.now()), role = Role.CANDIDATE,
-                leaderInfo = null, followerHeartbeats = mapOf(Pair(nodeID, Time.now())))
+                leaderInfo = null, followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), 0))))
     }
 
     fun stepDownToFollower(msg: VoteRequest): State {
         return State(msg.candidateTerm, voteInfo = VoteInfo(msg.candidate, votedAt = Time.now()), Role.FOLLOWER,
-                leaderInfo = null, followerHeartbeats = mapOf())
+                leaderInfo = null, followers = mapOf())
     }
 
     fun stepDownToFollower(resp: HeartbeatResponse): State {
         return State(resp.followerTerm, voteInfo = null, Role.FOLLOWER,
-                leaderInfo = null, followerHeartbeats = mapOf())
+                leaderInfo = null, followers = mapOf())
     }
 
     fun candidateBecomesLeader(state: State, response: VoteResponse): State {
@@ -62,11 +61,11 @@ object States {
         check(state.term == response.requestTerm)
         checkNotNull(state.voteInfo) { "Expected to have self vote when receiving VoteResponse"}
 
-        return State(state.term, state.voteInfo, Role.LEADER, LeaderInfo(state.voteInfo.vote, Time.now()), state.followerHeartbeats)
+        return State(state.term, state.voteInfo, Role.LEADER, LeaderInfo(state.voteInfo.vote, Time.now()), state.followers)
     }
 
     fun addFollower(state: State, follower: NodeID): State {
-        return State(state, followerHeartbeats = state.followerHeartbeats + Pair(follower, Time.now()))
+        return State(state, followerHeartbeats = state.followers + Pair(follower, FollowerInfo(Time.now(), 0)))
     }
 
     fun voteFor(state: State, term: Term, candidate: NodeID): State {
@@ -80,8 +79,8 @@ object States {
     }
 
     fun updateFollowerHeartbeat(state: State, follower: NodeID): State {
-        val followers = HashMap(state.followerHeartbeats)
-        followers[follower] = Time.now()
+        val followers = HashMap(state.followers)
+        followers[follower] = FollowerInfo(Time.now(), 0)
         return State(state, followerHeartbeats = followers)
     }
 }

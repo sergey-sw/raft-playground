@@ -7,7 +7,7 @@ class OperationLog {
 
     private data class Entry(val op: Operation, val term: Term)
 
-    private val lastAppliedIndexId = -1
+    private val commitIdx = -1
 
     private val log = ArrayList<Entry>()
 
