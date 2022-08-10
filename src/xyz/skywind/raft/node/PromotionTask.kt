@@ -4,6 +4,7 @@ import xyz.skywind.raft.cluster.Config
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
 import xyz.skywind.tools.Time
+import xyz.skywind.tools.Timestamp
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -20,7 +21,7 @@ class PromotionTask(private val stateGetter: Supplier<State>,
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
     @Volatile
-    private var nextExecutionTime: Long = Time.now()
+    private var nextExecutionTime: Timestamp = Time.now()
 
     fun start() {
         check(stateGetter.get().role == Role.FOLLOWER) { "Expected to start as a ${Role.FOLLOWER}" }

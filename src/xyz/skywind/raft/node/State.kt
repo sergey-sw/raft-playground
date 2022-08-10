@@ -2,16 +2,17 @@ package xyz.skywind.raft.node
 
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.tools.Time
+import xyz.skywind.tools.Timestamp
 
 data class State(
         val term: Term,
         val voteInfo: VoteInfo?,
         val role: Role,
         val leaderInfo: LeaderInfo?,
-        val followerHeartbeats: Map<NodeID, Long>) {
+        val followerHeartbeats: Map<NodeID, Timestamp>) {
 
-    data class LeaderInfo(val leader: NodeID, val lastHeartbeatTs: Long)
-    data class VoteInfo(val vote: NodeID, val votedAt: Long)
+    data class LeaderInfo(val leader: NodeID, val lastHeartbeatTs: Timestamp)
+    data class VoteInfo(val vote: NodeID, val votedAt: Timestamp)
 
     // second constructor that accepts prev state for default values
     companion object {
@@ -20,7 +21,7 @@ data class State(
                             voteInfo: VoteInfo? = s.voteInfo,
                             role: Role = s.role,
                             leader: LeaderInfo? = s.leaderInfo,
-                            followerHeartbeats: Map<NodeID, Long> = s.followerHeartbeats): State {
+                            followerHeartbeats: Map<NodeID, Timestamp> = s.followerHeartbeats): State {
             return State(term, voteInfo, role, leader, followerHeartbeats)
         }
     }

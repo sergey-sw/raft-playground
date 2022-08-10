@@ -20,7 +20,7 @@ object Logging {
         }
     }
 
-    private data class LogEntry(val msg: String, val logger: String, val level: Level, val ts: Long = Time.now())
+    private data class LogEntry(val msg: String, val logger: String, val level: Level, val ts: Timestamp = Time.now())
 
     fun getLogger(name: String): MyLogger {
         return MyLogger(name)
