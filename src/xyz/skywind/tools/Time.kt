@@ -8,7 +8,8 @@ object Time {
 }
 
 @JvmInline
-value class Timestamp(val ts: Long): Comparable<Timestamp> {
+value class Timestamp(private val ts: Long): Comparable<Timestamp> {
+
     operator fun minus(diff: Long): Timestamp {
         return Timestamp(ts - diff)
     }
@@ -19,10 +20,6 @@ value class Timestamp(val ts: Long): Comparable<Timestamp> {
 
     operator fun minus(diff: Timestamp): Long {
         return ts - diff.ts
-    }
-
-    operator fun plus(diff: Timestamp): Long {
-        return ts + diff.ts
     }
 
     override fun compareTo(other: Timestamp): Int {

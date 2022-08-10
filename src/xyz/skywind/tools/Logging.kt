@@ -14,20 +14,20 @@ object Logging {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private val loggerByName = ConcurrentHashMap<String, Logger>()
 
+    init {
+        scheduler.scheduleAtFixedRate(DumpLogs(), 5, 5, TimeUnit.MILLISECONDS)
+    }
+
+    private data class LogEntry(val msg: String, val logger: String, val level: Level, val ts: Timestamp = Time.now())
+
     class MyLogger(private val name: String) {
         fun log(level: Level, msg: String) {
             msgQueue.add(LogEntry(msg, name, level))
         }
     }
 
-    private data class LogEntry(val msg: String, val logger: String, val level: Level, val ts: Timestamp = Time.now())
-
     fun getLogger(name: String): MyLogger {
         return MyLogger(name)
-    }
-
-    init {
-        scheduler.scheduleAtFixedRate(DumpLogs(), 5, 5, TimeUnit.MILLISECONDS)
     }
 
     private class DumpLogs: Runnable {
