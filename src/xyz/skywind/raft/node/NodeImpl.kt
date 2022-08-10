@@ -5,6 +5,7 @@ import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.data.ClientAPI
 import xyz.skywind.raft.node.data.ClientAPI.*
 import xyz.skywind.raft.node.data.Data
+import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.node.data.op.RemoveValueOperation
 import xyz.skywind.raft.node.data.op.SetValueOperation
 import xyz.skywind.raft.rpc.*
@@ -169,10 +170,12 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
         }
     }
 
+    // TODO indices
     @Synchronized
     private fun sendHeartbeat() {
         if (state.role == Role.LEADER) {
-            network.broadcast(nodeID, AppendEntries(state.term, nodeID), heartbeatCallback)
+            val msg = AppendEntries(state, LogEntryInfo(0, Term(0)), listOf())
+            network.broadcast(nodeID, msg, heartbeatCallback)
             logging.onHeartbeatBroadcast(state)
         }
     }
