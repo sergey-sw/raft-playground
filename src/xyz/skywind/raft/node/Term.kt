@@ -1,6 +1,7 @@
 package xyz.skywind.raft.node
 
-data class Term(val num: Long) {
+@JvmInline
+value class Term(val num: Long) {
 
     init {
         if (num < 0)
