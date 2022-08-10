@@ -9,11 +9,13 @@ data class State(
         val voteInfo: VoteInfo?,
         val role: Role,
         val leaderInfo: LeaderInfo?,
+        val commitIdx: Int = -1,
+        val appliedIdx: Int = -1,
         val followers: Map<NodeID, FollowerInfo>) {
 
     data class LeaderInfo(val leader: NodeID, val lastHeartbeatTs: Timestamp)
     data class VoteInfo(val vote: NodeID, val votedAt: Timestamp)
-    data class FollowerInfo(val heartbeatTs: Timestamp, val nextIndex: Int)
+    data class FollowerInfo(val heartbeatTs: Timestamp, val nextIdx: Int, val matchIdx: Int)
 
     // second constructor that accepts prev state for default values
     companion object {
@@ -22,8 +24,10 @@ data class State(
                             voteInfo: VoteInfo? = s.voteInfo,
                             role: Role = s.role,
                             leader: LeaderInfo? = s.leaderInfo,
-                            followerHeartbeats: Map<NodeID, FollowerInfo> = s.followers): State {
-            return State(term, voteInfo, role, leader, followerHeartbeats)
+                            commitIdx: Int = s.commitIdx,
+                            appliedIdx: Int = s.appliedIdx,
+                            followers: Map<NodeID, FollowerInfo> = s.followers): State {
+            return State(term, voteInfo, role, leader, commitIdx, appliedIdx, followers)
         }
     }
 

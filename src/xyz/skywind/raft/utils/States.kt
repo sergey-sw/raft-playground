@@ -37,13 +37,16 @@ object States {
                 leaderInfo = null, followers = mapOf())
     }
 
+    // TODO indices
     fun fromAnyRoleToFollower(msg: AppendEntries): State {
-        return State(msg.term, VoteInfo(msg.leader, Time.now()), Role.FOLLOWER, LeaderInfo(msg.leader, Time.now()), mapOf())
+        return State(term = msg.term, voteInfo = VoteInfo(msg.leader, Time.now()), role = Role.FOLLOWER,
+                leaderInfo = LeaderInfo(msg.leader, Time.now()), commitIdx = 0, appliedIdx = 0, followers = mapOf())
     }
 
+    // TODO indices
     fun becomeCandidate(state: State, nodeID: NodeID): State {
         return State(term = state.term.inc(), voteInfo = VoteInfo(nodeID, Time.now()), role = Role.CANDIDATE,
-                leaderInfo = null, followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), 0))))
+                leaderInfo = null, followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), 0, 0))))
     }
 
     fun stepDownToFollower(msg: VoteRequest): State {
@@ -59,13 +62,16 @@ object States {
     fun candidateBecomesLeader(state: State, response: VoteResponse): State {
         check(state.role == Role.CANDIDATE)
         check(state.term == response.requestTerm)
-        checkNotNull(state.voteInfo) { "Expected to have self vote when receiving VoteResponse"}
+        checkNotNull(state.voteInfo) { "Expected to have self vote when receiving VoteResponse" }
 
-        return State(state.term, state.voteInfo, Role.LEADER, LeaderInfo(state.voteInfo.vote, Time.now()), state.followers)
+        // TODO indices
+        return State(state.term, state.voteInfo, Role.LEADER, LeaderInfo(state.voteInfo.vote, Time.now()),
+                0, 0, state.followers)
     }
 
+    // TODO indices
     fun addFollower(state: State, follower: NodeID): State {
-        return State(state, followerHeartbeats = state.followers + Pair(follower, FollowerInfo(Time.now(), 0)))
+        return State(state, followers = state.followers + Pair(follower, FollowerInfo(Time.now(), 0, 0)))
     }
 
     fun voteFor(state: State, term: Term, candidate: NodeID): State {
@@ -78,9 +84,10 @@ object States {
         return State(state, leader = LeaderInfo(state.leaderInfo.leader, Time.now()))
     }
 
+    // TODO indices
     fun updateFollowerHeartbeat(state: State, follower: NodeID): State {
         val followers = HashMap(state.followers)
-        followers[follower] = FollowerInfo(Time.now(), 0)
-        return State(state, followerHeartbeats = followers)
+        followers[follower] = FollowerInfo(Time.now(), 0, 0)
+        return State(state, followers = followers)
     }
 }

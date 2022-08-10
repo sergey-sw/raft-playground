@@ -7,8 +7,6 @@ class OperationLog {
 
     private data class Entry(val op: Operation, val term: Term)
 
-    private val commitIdx = -1
-
     private val log = ArrayList<Entry>()
 
     fun append(op: Operation, term: Term) {

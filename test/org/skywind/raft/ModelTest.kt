@@ -90,6 +90,7 @@ object ModelTest {
                 voteInfo = null,
                 role = Role.FOLLOWER,
                 leaderInfo = null,
+                commitIdx = 0, appliedIdx = 0,
                 mapOf()
         )
 
@@ -98,6 +99,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("123"), Time.now()),
                 role = Role.FOLLOWER,
                 leaderInfo = null,
+                commitIdx = 0, appliedIdx = 0,
                 mapOf()
         )
 
@@ -106,6 +108,7 @@ object ModelTest {
                 voteInfo = VoteInfo(NodeID("123"), Time.now()),
                 role = Role.FOLLOWER,
                 leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
+                commitIdx = 0, appliedIdx = 0,
                 mapOf()
         )
     }
@@ -394,7 +397,7 @@ object ModelTest {
     private fun makeFollowers(vararg nodes: String): Map<NodeID, FollowerInfo> {
         val followers = HashMap<NodeID, FollowerInfo>()
         for (node in nodes) {
-            followers[NodeID(node)] = FollowerInfo(Time.now(), 0)
+            followers[NodeID(node)] = FollowerInfo(Time.now(), 0, 0)
         }
         return followers
     }
