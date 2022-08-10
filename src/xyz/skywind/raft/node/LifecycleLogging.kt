@@ -16,7 +16,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Node $nodeID started")
     }
 
-    fun acceptedLeadership(msg: LeaderHeartbeat) {
+    fun acceptedLeadership(msg: AppendEntries) {
         log(Level.INFO, "Node $nodeID received ${msg.javaClass.simpleName} and accepted " +
                 "leadership of node ${msg.leader} in term ${msg.term}")
     }
@@ -83,7 +83,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Voted for ${msg.candidate} in term ${msg.candidateTerm}")
     }
 
-    fun onStrangeHeartbeat(state: State, msg: LeaderHeartbeat) {
+    fun onStrangeHeartbeat(state: State, msg: AppendEntries) {
         log(Level.WARNING, "Received strange leader heartbeat $msg. Node is ${state.role} in term ${state.term}")
     }
 

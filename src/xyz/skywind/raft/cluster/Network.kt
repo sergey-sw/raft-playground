@@ -45,7 +45,7 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    fun broadcast(from: NodeID, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
+    fun broadcast(from: NodeID, request: AppendEntries, callback: Consumer<HeartbeatResponse>) {
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
@@ -132,7 +132,7 @@ class Network {
         }.logErrorsTo(logger)
     }
 
-    private fun sendLeaderHeartbeat(from: NodeID, node: Node, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
+    private fun sendLeaderHeartbeat(from: NodeID, node: Node, request: AppendEntries, callback: Consumer<HeartbeatResponse>) {
         CompletableFuture.runAsync {
             if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
@@ -148,7 +148,7 @@ class Network {
         }.logErrorsTo(logger)
     }
 
-    private fun execute(node: Node, request: LeaderHeartbeat, callback: Consumer<HeartbeatResponse>) {
+    private fun execute(node: Node, request: AppendEntries, callback: Consumer<HeartbeatResponse>) {
         Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
         val response = node.process(request)
         Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())

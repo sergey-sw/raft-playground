@@ -1,6 +1,5 @@
 package xyz.skywind.raft.utils
 
-import xyz.skywind.raft.rpc.LeaderHeartbeat
 import xyz.skywind.raft.rpc.VoteRequest
 import xyz.skywind.raft.rpc.VoteResponse
 import xyz.skywind.raft.node.NodeID
@@ -8,6 +7,7 @@ import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
 import xyz.skywind.raft.node.State.*
 import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.raft.rpc.HeartbeatResponse
 import xyz.skywind.tools.Time
 
@@ -37,7 +37,7 @@ object States {
                 leaderInfo = null, followers = mapOf())
     }
 
-    fun fromAnyRoleToFollower(msg: LeaderHeartbeat): State {
+    fun fromAnyRoleToFollower(msg: AppendEntries): State {
         return State(msg.term, VoteInfo(msg.leader, Time.now()), Role.FOLLOWER, LeaderInfo(msg.leader, Time.now()), mapOf())
     }
 

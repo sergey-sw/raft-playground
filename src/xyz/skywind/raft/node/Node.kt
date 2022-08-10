@@ -10,5 +10,5 @@ interface Node {
 
     fun process(req: VoteRequest): VoteResponse
 
-    fun process(req: LeaderHeartbeat): HeartbeatResponse
+    fun process(req: AppendEntries): HeartbeatResponse
 }
