@@ -2,16 +2,22 @@ package xyz.skywind.raft.node
 
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.cluster.Network
+import xyz.skywind.raft.node.data.ClientAPI
+import xyz.skywind.raft.node.data.ClientAPI.*
+import xyz.skywind.raft.node.data.Data
+import xyz.skywind.raft.node.data.op.RemoveValueOperation
+import xyz.skywind.raft.node.data.op.SetValueOperation
 import xyz.skywind.raft.rpc.*
 import xyz.skywind.raft.utils.RaftAssertions.verifyRequestHasHigherTerm
 import xyz.skywind.raft.utils.States
 
-class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node {
+class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node, ClientAPI {
 
     private val logging = LifecycleLogging(nodeID)
 
-    @Volatile
     private var state = States.initialState()
+
+    private val data = Data()
 
     private val promotionTask = PromotionTask(
             { state }, config, logging,
@@ -26,6 +32,37 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
     override fun start() {
         logging.nodeStarted()
         promotionTask.start()
+    }
+
+    @Synchronized
+    override fun get(key: String): GetOperationResponse {
+        return if (state.role == Role.LEADER) {
+            GetOperationResponse(success = true, data = data.getByKey(key), leaderInfo = state.leaderInfo)
+        } else {
+            GetOperationResponse(success = false, data = null, leaderInfo = state.leaderInfo)
+        }
+    }
+
+    @Synchronized
+    override fun set(key: String, value: ByteArray): SetOperationResponse {
+        return if (state.role == Role.LEADER) {
+            data.append(state.term, SetValueOperation(state.term, key, value))
+            // await synchronization
+            SetOperationResponse(success = true, leaderInfo = state.leaderInfo)
+        } else {
+            SetOperationResponse(success = false, leaderInfo = state.leaderInfo)
+        }
+    }
+
+    @Synchronized
+    override fun remove(key: String): RemoveOperationResponse {
+        return if (state.role == Role.LEADER) {
+            data.append(state.term, RemoveValueOperation(state.term, key))
+            // await synchronization
+            RemoveOperationResponse(success = true, leaderInfo = state.leaderInfo)
+        } else {
+            RemoveOperationResponse(success = false, leaderInfo = state.leaderInfo)
+        }
     }
 
     @Synchronized
