@@ -5,15 +5,13 @@ import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.data.ClientAPI
 import xyz.skywind.raft.node.data.ClientAPI.*
 import xyz.skywind.raft.node.data.Data
-import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.node.data.op.RemoveValueOperation
 import xyz.skywind.raft.node.data.op.SetValueOperation
 import xyz.skywind.raft.rpc.*
 import xyz.skywind.raft.utils.RaftAssertions.verifyRequestHasHigherTerm
 import xyz.skywind.raft.utils.States
 
-class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node,
-    ClientAPI {
+class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node, ClientAPI {
 
     private val logging = LifecycleLogging(nodeID)
 
@@ -109,7 +107,7 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
                 state = States.addFollower(state, response.voter)
                 if (config.isQuorum(state.followers.size)) {
-                    state = States.candidateBecomesLeader(state, response)
+                    state = States.candidateBecomesLeader(state, data.getLastEntry(), response)
                     logging.leaderAfterAcceptedVote(state)
                     sendHeartbeat()
                 } else {

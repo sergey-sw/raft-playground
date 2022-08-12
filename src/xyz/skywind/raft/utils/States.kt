@@ -7,6 +7,7 @@ import xyz.skywind.raft.node.Role
 import xyz.skywind.raft.node.State
 import xyz.skywind.raft.node.State.*
 import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.raft.rpc.HeartbeatResponse
 import xyz.skywind.tools.Time
@@ -73,7 +74,7 @@ object States {
             leaderInfo = null,
             commitIdx = state.commitIdx,
             appliedIdx = state.appliedIdx,
-            followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), 0, 0)))
+            followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), state.commitIdx, 0)))
         )
     }
 
@@ -101,10 +102,15 @@ object States {
         )
     }
 
-    fun candidateBecomesLeader(state: State, response: VoteResponse): State {
+    fun candidateBecomesLeader(state: State, prevLogEntry: LogEntryInfo, response: VoteResponse): State {
         check(state.role == Role.CANDIDATE)
         check(state.term == response.requestTerm)
         checkNotNull(state.voteInfo) { "Expected to have self vote when receiving VoteResponse" }
+
+        val followers = HashMap<NodeID, FollowerInfo>()
+        for (f in state.followers) {
+            followers[f.key] = FollowerInfo(f.value.heartbeatTs, nextIdx = prevLogEntry.index, matchIdx = 0)
+        }
 
         return State(
             term = state.term,
@@ -113,7 +119,7 @@ object States {
             leaderInfo = LeaderInfo(state.voteInfo.votedFor, Time.now()),
             commitIdx = state.commitIdx,
             appliedIdx = state.appliedIdx,
-            followers = state.followers
+            followers = followers
         )
     }
 
