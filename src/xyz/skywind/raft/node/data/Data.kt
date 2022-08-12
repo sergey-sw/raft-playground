@@ -1,6 +1,5 @@
 package xyz.skywind.raft.node.data
 
-import xyz.skywind.raft.node.Term
 import xyz.skywind.raft.node.data.op.Operation
 
 class Data {
@@ -17,7 +16,11 @@ class Data {
         return kv[key] ?: EMPTY_VALUE
     }
 
-    fun append(term: Term, op: Operation) {
-        log.append(op, term)
+    fun append(op: Operation): LogEntryInfo {
+        return log.append(op)
+    }
+
+    fun getLastEntry(): LogEntryInfo {
+        return log.getLastEntry()
     }
 }

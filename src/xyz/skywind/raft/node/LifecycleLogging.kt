@@ -28,7 +28,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
 
     fun rejectVoteRequest(state: State, msg: VoteRequest) {
         log(Level.INFO, "Rejecting VoteRequest from ${msg.candidate} in term ${msg.candidateTerm}. " +
-                "Node is ${state.role} in term ${state.term}, votedFor=${state.voteInfo?.vote}")
+                "Node is ${state.role} in term ${state.term}, votedFor=${state.voteInfo?.votedFor}")
     }
 
     fun receivedVoteResponseInFollowerState(state: State, response: VoteResponse) {

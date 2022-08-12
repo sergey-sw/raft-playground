@@ -45,14 +45,18 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    fun broadcast(from: NodeID, request: AppendEntries, callback: Consumer<HeartbeatResponse>) {
+    fun broadcast(from: NodeID, request: AppendEntries, callback: Consumer<HeartbeatResponse>):
+            List<CompletableFuture<HeartbeatResponse?>> {
+
+        val futures = ArrayList<CompletableFuture<HeartbeatResponse?>>()
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
-                    sendLeaderHeartbeat(from, node, request, callback)
+                    futures += sendLeaderHeartbeat(from, node, request, callback)
                 }
             }
         }
+        return futures
     }
 
     fun broadcast(from: NodeID, request: VoteRequest, callback: Consumer<VoteResponse>) {
@@ -132,27 +136,36 @@ class Network {
         }.logErrorsTo(logger)
     }
 
-    private fun sendLeaderHeartbeat(from: NodeID, node: Node, request: AppendEntries, callback: Consumer<HeartbeatResponse>) {
-        CompletableFuture.runAsync {
+    private fun sendLeaderHeartbeat(
+        from: NodeID,
+        node: Node,
+        request: AppendEntries,
+        callback: Consumer<HeartbeatResponse>
+    ): CompletableFuture<HeartbeatResponse?> {
+        return CompletableFuture.supplyAsync {
             if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
-                return@runAsync
+                return@supplyAsync null
             }
 
-            execute(node, request, callback)
+            val response = execute(node, request, callback)
 
             if (random.nextDouble() < MESSAGE_DUPLICATION_PROBABILITY) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is duplicated")
                 execute(node, request, callback)
             }
+
+            return@supplyAsync response
         }.logErrorsTo(logger)
     }
 
-    private fun execute(node: Node, request: AppendEntries, callback: Consumer<HeartbeatResponse>) {
+    private fun execute(node: Node, request: AppendEntries, callback: Consumer<HeartbeatResponse>): HeartbeatResponse {
         Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
         val response = node.process(request)
         Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
         callback.accept(response)
+
+        return response
     }
 
     private fun execute(node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
@@ -163,8 +176,8 @@ class Network {
     }
 }
 
-private fun <T> CompletableFuture<T>.logErrorsTo(logger: Logging.MyLogger) {
-    exceptionally {
+private fun <T> CompletableFuture<T>.logErrorsTo(logger: Logging.MyLogger): CompletableFuture<T> {
+    return exceptionally {
         logger.log(Level.SEVERE, it.stackTraceToString())
         null
     }

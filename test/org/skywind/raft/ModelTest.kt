@@ -48,19 +48,23 @@ object ModelTest {
 
     private fun testState() {
         State(
-                term = Term(1),
-                voteInfo = VoteInfo(NodeID("1"), Time.now()),
-                role = Role.CANDIDATE,
-                leaderInfo = null,
-                followers = makeFollowers("1")
+            term = Term(1),
+            voteInfo = VoteInfo(NodeID("1"), Time.now()),
+            role = Role.CANDIDATE,
+            leaderInfo = null,
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = makeFollowers("1")
         )
 
         State(
-                term = Term(1),
-                voteInfo = VoteInfo(NodeID("1"), Time.now()),
-                role = Role.LEADER,
-                leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
-                followers = makeFollowers("1", "2", "3")
+            term = Term(1),
+            voteInfo = VoteInfo(NodeID("1"), Time.now()),
+            role = Role.LEADER,
+            leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = makeFollowers("1", "2", "3")
         )
 
         testOkFollowerStates()
@@ -86,41 +90,43 @@ object ModelTest {
 
     private fun testOkFollowerStates() {
         State(
-                term = Term(1),
-                voteInfo = null,
-                role = Role.FOLLOWER,
-                leaderInfo = null,
-                commitIdx = 0, appliedIdx = 0,
-                mapOf()
+            term = Term(1),
+            voteInfo = null,
+            role = Role.FOLLOWER,
+            leaderInfo = null,
+            commitIdx = 0, appliedIdx = 0,
+            mapOf()
         )
 
         State(
-                term = Term(1),
-                voteInfo = VoteInfo(NodeID("123"), Time.now()),
-                role = Role.FOLLOWER,
-                leaderInfo = null,
-                commitIdx = 0, appliedIdx = 0,
-                mapOf()
+            term = Term(1),
+            voteInfo = VoteInfo(NodeID("123"), Time.now()),
+            role = Role.FOLLOWER,
+            leaderInfo = null,
+            commitIdx = 0, appliedIdx = 0,
+            mapOf()
         )
 
         State(
-                term = Term(1),
-                voteInfo = VoteInfo(NodeID("123"), Time.now()),
-                role = Role.FOLLOWER,
-                leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
-                commitIdx = 0, appliedIdx = 0,
-                mapOf()
+            term = Term(1),
+            voteInfo = VoteInfo(NodeID("123"), Time.now()),
+            role = Role.FOLLOWER,
+            leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
+            commitIdx = 0, appliedIdx = 0,
+            mapOf()
         )
     }
 
     private fun testFollowerShouldNotHaveFollowers() {
         try {
             State(
-                    term = Term(1),
-                    voteInfo = null,
-                    role = Role.FOLLOWER,
-                    leaderInfo = null,
-                    followers = makeFollowers("1")
+                term = Term(1),
+                voteInfo = null,
+                role = Role.FOLLOWER,
+                leaderInfo = null,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("1")
             )
             throw AssertionError("Expected to fail if follower has followers")
         } catch (e: IllegalStateException) {
@@ -131,11 +137,13 @@ object ModelTest {
     private fun testCandidateShouldFollowSelf() {
         try {
             State(
-                    term = Term(1),
-                    voteInfo = VoteInfo(NodeID("123"), Time.now()),
-                    role = Role.CANDIDATE,
-                    leaderInfo = null,
-                    followers = mapOf()
+                term = Term(1),
+                voteInfo = VoteInfo(NodeID("123"), Time.now()),
+                role = Role.CANDIDATE,
+                leaderInfo = null,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = mapOf()
             )
             throw AssertionError("Expected to fail if candidate does not follow self")
         } catch (e: IllegalStateException) {
@@ -146,11 +154,13 @@ object ModelTest {
     private fun testCandidateShouldVoteSelf() {
         try {
             State(
-                    term = Term(1),
-                    voteInfo = null,
-                    role = Role.CANDIDATE,
-                    leaderInfo = null,
-                    followers = makeFollowers("123")
+                term = Term(1),
+                voteInfo = null,
+                role = Role.CANDIDATE,
+                leaderInfo = null,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("123")
             )
             throw AssertionError("Expected to fail if candidate does not vote for itself")
         } catch (e: IllegalStateException) {
@@ -161,11 +171,13 @@ object ModelTest {
     private fun testLeaderShouldFollowSelf() {
         try {
             State(
-                    term = Term(1),
-                    voteInfo = VoteInfo(NodeID("123"), Time.now()),
-                    role = Role.LEADER,
-                    leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
-                    followers = mapOf()
+                term = Term(1),
+                voteInfo = VoteInfo(NodeID("123"), Time.now()),
+                role = Role.LEADER,
+                leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = mapOf()
             )
             throw AssertionError("Expected to fail if leader does not follow self")
         } catch (e: IllegalStateException) {
@@ -176,11 +188,13 @@ object ModelTest {
     private fun testLeaderShouldBeFollowed() {
         try {
             State(
-                    term = Term(1),
-                    voteInfo = VoteInfo(NodeID("123"), Time.now()),
-                    role = Role.LEADER,
-                    leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
-                    followers = makeFollowers("1")
+                term = Term(1),
+                voteInfo = VoteInfo(NodeID("123"), Time.now()),
+                role = Role.LEADER,
+                leaderInfo = LeaderInfo(NodeID("123"), Time.now()),
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("1")
             )
             throw AssertionError("Expected to fail if leader does not have at least 2 followers")
         } catch (e: IllegalStateException) {
@@ -191,11 +205,13 @@ object ModelTest {
     private fun testLeaderShouldVoteForSelf() {
         try {
             State(
-                    term = Term(1),
-                    voteInfo = null,
-                    role = Role.CANDIDATE,
-                    leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
-                    followers = makeFollowers("1", "2")
+                term = Term(1),
+                voteInfo = null,
+                role = Role.CANDIDATE,
+                leaderInfo = LeaderInfo(NodeID("1"), Time.now()),
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("1", "2")
             )
             throw AssertionError("Expected to fail if leader does not vote for itself")
         } catch (e: IllegalStateException) {
@@ -206,11 +222,13 @@ object ModelTest {
     private fun testLeaderHasCorrectTerm() {
         try {
             State(
-                    term = Term(0),
-                    voteInfo = null,
-                    role = Role.LEADER,
-                    leaderInfo = null,
-                    followers = makeFollowers("123")
+                term = Term(0),
+                voteInfo = null,
+                role = Role.LEADER,
+                leaderInfo = null,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("123")
             )
             throw AssertionError("Expected to fail if leader has term equal 0")
         } catch (e: IllegalStateException) {
@@ -221,11 +239,13 @@ object ModelTest {
     private fun testCandidateHasCorrectTerm() {
         try {
             State(
-                    term = Term(0),
-                    voteInfo = null,
-                    role = Role.CANDIDATE,
-                    leaderInfo = null,
-                    followers = makeFollowers("123")
+                term = Term(0),
+                voteInfo = null,
+                role = Role.CANDIDATE,
+                leaderInfo = null,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("123")
             )
             throw AssertionError("Expected to fail if candidate has term equal 0")
         } catch (e: IllegalStateException) {
@@ -235,22 +255,26 @@ object ModelTest {
 
     private fun testFollowerIsAllowedZeroTerm() {
         State(
-                term = Term(num = 0),
-                voteInfo = null,
-                role = Role.FOLLOWER,
-                leaderInfo = null,
-                followers = mapOf()
+            term = Term(num = 0),
+            voteInfo = null,
+            role = Role.FOLLOWER,
+            leaderInfo = null,
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = mapOf()
         )
     }
 
     private fun testCandidateCantHaveLeader() {
         try {
             State(
-                    term = Term(10),
-                    voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
-                    leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
-                    role = Role.CANDIDATE,
-                    followers = makeFollowers("candidate")
+                term = Term(10),
+                voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
+                leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
+                role = Role.CANDIDATE,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("candidate")
             )
             throw AssertionError("Expected to fail if candidate has leader property")
         } catch (e: IllegalStateException) {
@@ -261,11 +285,13 @@ object ModelTest {
     private fun testLeaderHasLeaderProperty() {
         try {
             State(
-                    term = Term(10),
-                    voteInfo = VoteInfo(NodeID("leader"), Time.now()),
-                    leaderInfo = null,
-                    role = Role.LEADER,
-                    followers = makeFollowers("candidate", "leader")
+                term = Term(10),
+                voteInfo = VoteInfo(NodeID("leader"), Time.now()),
+                leaderInfo = null,
+                role = Role.LEADER,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("candidate", "leader")
             )
             throw AssertionError("Expected to fail if leader has unset leader property")
         } catch (e: IllegalStateException) {
@@ -276,11 +302,13 @@ object ModelTest {
     private fun testLeaderVotedForSelf() {
         try {
             State(
-                    term = Term(10),
-                    voteInfo = VoteInfo(NodeID("c1"), Time.now()),
-                    leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
-                    role = Role.LEADER,
-                    followers = makeFollowers("c1", "c2")
+                term = Term(10),
+                voteInfo = VoteInfo(NodeID("c1"), Time.now()),
+                leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
+                role = Role.LEADER,
+                commitIdx = 0,
+                appliedIdx = 0,
+                followers = makeFollowers("c1", "c2")
             )
             throw AssertionError("Expected to fail if leader voted for other node")
         } catch (e: IllegalStateException) {
@@ -290,29 +318,31 @@ object ModelTest {
 
     private fun testStateCopy() {
         val state = State(
-                term = Term(0),
-                voteInfo = null,
-                role = Role.FOLLOWER,
-                leaderInfo = LeaderInfo(NodeID("3"), Time.now()),
-                followers = mapOf()
+            term = Term(0),
+            voteInfo = null,
+            role = Role.FOLLOWER,
+            leaderInfo = LeaderInfo(NodeID("3"), Time.now()),
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = mapOf()
         )
 
         val copyTerm = Term(5)
         val copy = State(state, copyTerm)
 
         if (copy.term != copyTerm || copy.role != state.role
-                || copy.leaderInfo != state.leaderInfo
-                || copy.followers != state.followers) {
+            || copy.leaderInfo != state.leaderInfo
+            || copy.followers != state.followers) {
             throw AssertionError("State 'copy' constructor does not work")
         }
     }
 
     private fun testSelfPromotion() {
         val cfg = Config(
-                nodeCount = 5,
-                electionTimeoutMinMs = 150,
-                electionTimeoutMaxMs = 300,
-                heartbeatTimeoutMs = 3000
+            nodeCount = 5,
+            electionTimeoutMinMs = 150,
+            electionTimeoutMaxMs = 300,
+            heartbeatTimeoutMs = 3000
         )
 
         testInitialStateShouldPromote(cfg)
@@ -329,21 +359,25 @@ object ModelTest {
 
     private fun testOnlyFollowerShouldPromote(cfg: Config) {
         val candidateState = State(
-                term = Term(10),
-                voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
-                role = Role.CANDIDATE,
-                leaderInfo = null,
-                followers = makeFollowers("candidate")
+            term = Term(10),
+            voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
+            role = Role.CANDIDATE,
+            leaderInfo = null,
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = makeFollowers("candidate")
         )
 
         check(!candidateState.needSelfPromotion(cfg)) { "Candidate should not promote" }
 
         val leaderState = State(
-                term = Term(10),
-                voteInfo = VoteInfo(NodeID("leader"), Time.now()),
-                role = Role.LEADER,
-                leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
-                followers = makeFollowers("candidate", "leader")
+            term = Term(10),
+            voteInfo = VoteInfo(NodeID("leader"), Time.now()),
+            role = Role.LEADER,
+            leaderInfo = LeaderInfo(NodeID("leader"), Time.now()),
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = makeFollowers("candidate", "leader")
         )
 
         check(!leaderState.needSelfPromotion(cfg)) { "Candidate should not promote" }
@@ -351,44 +385,52 @@ object ModelTest {
 
     private fun testFollowerShouldPromoteWithoutLeader(cfg: Config) {
         val followerState = State(
-                term = Term(10),
-                voteInfo = null,
-                role = Role.FOLLOWER,
-                leaderInfo = null,
-                followers = mapOf()
+            term = Term(10),
+            voteInfo = null,
+            role = Role.FOLLOWER,
+            leaderInfo = null,
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = mapOf()
         )
         check(followerState.needSelfPromotion(cfg))
     }
 
     private fun testFollowerShouldNotPromoteWithActiveLeader(cfg: Config) {
         val followerState = State(
-                term = Term(10),
-                voteInfo = VoteInfo(NodeID("leader"), Time.now()),
-                role = Role.FOLLOWER,
-                leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - (cfg.heartbeatTimeoutMs / 2)),
-                followers = mapOf()
+            term = Term(10),
+            voteInfo = VoteInfo(NodeID("leader"), Time.now()),
+            role = Role.FOLLOWER,
+            leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - (cfg.heartbeatTimeoutMs / 2)),
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = mapOf()
         )
         check(!followerState.needSelfPromotion(cfg))
     }
 
     private fun testFollowerShouldPromoteWithStaleLeader(cfg: Config) {
         val followerState = State(
-                term = Term(10),
-                voteInfo = VoteInfo(NodeID("leader"), votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs),
-                role = Role.FOLLOWER,
-                leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - cfg.heartbeatTimeoutMs * 3 / 2),
-                followers = mapOf()
+            term = Term(10),
+            voteInfo = VoteInfo(NodeID("leader"), votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs),
+            role = Role.FOLLOWER,
+            leaderInfo = LeaderInfo(NodeID("leader"), lastHeartbeatTs = Time.now() - cfg.heartbeatTimeoutMs * 3 / 2),
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = mapOf()
         )
         check(followerState.needSelfPromotion(cfg))
     }
 
     private fun testFollowerShouldNotPromoteIfVotedRecently(cfg: Config) {
         val followerState = State(
-                term = Term(10),
-                voteInfo = VoteInfo(NodeID("candidate"), votedAt = Time.now() - cfg.electionTimeoutMinMs / 5),
-                role = Role.FOLLOWER,
-                leaderInfo = null,
-                followers = mapOf()
+            term = Term(10),
+            voteInfo = VoteInfo(NodeID("candidate"), votedAt = Time.now() - cfg.electionTimeoutMinMs / 5),
+            role = Role.FOLLOWER,
+            leaderInfo = null,
+            commitIdx = 0,
+            appliedIdx = 0,
+            followers = mapOf()
         )
         check(!followerState.needSelfPromotion(cfg))
     }

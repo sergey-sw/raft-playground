@@ -9,12 +9,15 @@ data class State(
         val voteInfo: VoteInfo?,
         val role: Role,
         val leaderInfo: LeaderInfo?,
-        val commitIdx: Int = -1,
-        val appliedIdx: Int = -1,
+        val commitIdx: Int, // index of the highest log entry known to be committed
+        val appliedIdx: Int, // index of the highest log entry applied to the state machine
         val followers: Map<NodeID, FollowerInfo>) {
 
     data class LeaderInfo(val leader: NodeID, val lastHeartbeatTs: Timestamp)
-    data class VoteInfo(val vote: NodeID, val votedAt: Timestamp)
+    data class VoteInfo(val votedFor: NodeID, val votedAt: Timestamp)
+
+    // nextIdx: index of next log entry that should be sent to follower
+    // matchIdx: index of max entry that matches with leader
     data class FollowerInfo(val heartbeatTs: Timestamp, val nextIdx: Int, val matchIdx: Int)
 
     // second constructor that accepts prev state for default values
@@ -31,13 +34,12 @@ data class State(
         }
     }
 
-    init {
+    init { // checking invariants
         if (role == Role.CANDIDATE) {
-            check(followers.isNotEmpty()) { "Should at least have self as follower when node is a candidate" }
             check(term.num > 0) { "Candidate can't have 0 term" }
             check(leaderInfo == null) { "Candidate can't have active leader" }
             checkNotNull(voteInfo) { "Candidate should vote for itself" }
-            check(followers.contains(voteInfo.vote)) { "Candidate should have a vote for itself" }
+            check(followers.contains(voteInfo.votedFor)) { "Candidate should have a vote for itself" }
         }
 
         if (role == Role.FOLLOWER) {
@@ -49,8 +51,8 @@ data class State(
             check(followers.size > 1) { "Leader can not have less than 2 followers (including self)" }
             checkNotNull(voteInfo) { "Leader should have a vote for itself" }
             checkNotNull(leaderInfo) { "Leader should have leader property set" }
-            check(voteInfo.vote == leaderInfo.leader) { "Chosen leader should vote for itself" }
-            check(followers.contains(voteInfo.vote)) { "Candidate should have a vote for itself" }
+            check(voteInfo.votedFor == leaderInfo.leader) { "Chosen leader should vote for itself" }
+            check(followers.contains(voteInfo.votedFor)) { "Candidate should have a vote for itself" }
         }
     }
 
@@ -59,7 +61,7 @@ data class State(
     }
 
     fun votedFor(candidate: NodeID): Boolean {
-        return voteInfo != null && voteInfo.vote == candidate
+        return voteInfo != null && voteInfo.votedFor == candidate
     }
 
     fun canAcceptTerm(t: Term): Boolean {
