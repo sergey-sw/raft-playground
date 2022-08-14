@@ -57,17 +57,24 @@ class Data(nodeID: NodeID) {
     }
 
     @Synchronized
-    fun matchesLeaderLog(req: AppendEntries): Boolean {
-        val matches = log.contains(req.prevLogEntryInfo)
+    fun containsEntry(prevLogEntryInfo: LogEntryInfo): Boolean {
+        val matches = log.contains(prevLogEntryInfo)
 
         if (!matches) {
             logger.log(
                 Level.WARNING, "Node last entry ${getLastEntry()} does not match with " +
-                        "leader's prev entry ${req.prevLogEntryInfo}"
+                        "request prev entry $prevLogEntryInfo"
             )
         }
 
         return matches
+    }
+
+    @Synchronized
+    fun isNotAheadOfEntry(theirPrevLogEntry: LogEntryInfo): Boolean {
+        val ourLastEntry = log.getLastEntry()
+
+        return ourLastEntry.index <= theirPrevLogEntry.index
     }
 
     fun maybeApplyEntries(req: AppendEntries, followerState: State): Int {

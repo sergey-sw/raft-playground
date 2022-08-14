@@ -10,6 +10,7 @@ import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.raft.rpc.RpcUtils
+import xyz.skywind.raft.rpc.VoteRequest
 import xyz.skywind.raft.utils.States
 
 class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(nodeID, config, network), ClientAPI {
@@ -24,8 +25,14 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         logging.onAfterAppendEntries(state, req, appliedOperationCount)
     }
 
+    // Node can accept new entries from leader only if node contains leader's prev log entry
     override fun matchesLeaderLog(req: AppendEntries): Boolean {
-        return data.matchesLeaderLog(req)
+        return data.containsEntry(req.prevLogEntryInfo)
+    }
+
+    // Node can accept candidate vote request only if it's log is not ahead of candidate's log
+    override fun matchesCandidateLog(req: VoteRequest): Boolean {
+        return data.isNotAheadOfEntry(req.prevLogEntryInfo)
     }
 
     @Synchronized

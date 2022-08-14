@@ -17,7 +17,8 @@ import xyz.skywind.raft.utils.States
 open class VotingNode(
     final override val nodeID: NodeID,
     protected val config: Config,
-    protected val network: Network) : Node {
+    protected val network: Network
+) : Node {
 
     protected val logging = LifecycleLogging(nodeID)
 
@@ -39,7 +40,7 @@ open class VotingNode(
 
     @Synchronized
     override fun process(req: VoteRequest): VoteResponse {
-        if (state.term > req.candidateTerm) {
+        if (state.term > req.candidateTerm || !matchesCandidateLog(req)) {
             logging.rejectVoteRequest(state, req)
             return VoteResponse(
                 granted = false,
@@ -142,7 +143,7 @@ open class VotingNode(
     private fun maybeUpgradeFromFollowerToCandidate() {
         if (state.needSelfPromotion(config)) {
             state = States.becomeCandidate(state, nodeID) // if there's no leader yet, let's promote ourselves
-            network.broadcast(nodeID, VoteRequest(state.term, nodeID)) { processVoteResponse(it) }
+            network.broadcast(nodeID, VoteRequest(state.term, nodeID, data.getLastEntry())) { processVoteResponse(it) }
             logging.promotedToCandidate(state)
         }
     }
@@ -171,6 +172,10 @@ open class VotingNode(
     }
 
     protected open fun matchesLeaderLog(req: AppendEntries): Boolean {
+        return true
+    }
+
+    protected open fun matchesCandidateLog(req: VoteRequest): Boolean {
         return true
     }
 }
