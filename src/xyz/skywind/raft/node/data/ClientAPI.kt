@@ -1,8 +1,11 @@
 package xyz.skywind.raft.node.data
 
+import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.State.LeaderInfo
 
 interface ClientAPI {
+
+    val nodeID: NodeID
 
     fun get(key: String): GetOperationResponse
 

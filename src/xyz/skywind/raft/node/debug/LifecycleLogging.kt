@@ -87,7 +87,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun onStrangeHeartbeat(state: State, msg: AppendEntries) {
-        log(Level.WARNING, "Received strange leader heartbeat $msg. Node is ${state.role} in term ${state.term}")
+        log(Level.WARNING, "Received strange $msg. Node is ${state.role} in term ${state.term}")
     }
 
     fun onHeartbeatBroadcast(state: State) {
@@ -110,6 +110,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
 
     fun onAfterAppendEntries(state: State, req: AppendEntries, appliedOperationCount: Int) {
         if (req.entries.isNotEmpty()) {
+            log(Level.INFO, "Added ${req.entries} to log")
             if (appliedOperationCount == 0) {
                 log(
                     Level.INFO, "No ops were applied. Leader commit idx: ${req.commitIndex}, " +

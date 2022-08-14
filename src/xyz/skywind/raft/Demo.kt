@@ -4,6 +4,7 @@ import xyz.skywind.raft.cluster.Cluster
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.node.impl.DataNode
 import xyz.skywind.raft.node.model.NodeID
+import java.util.concurrent.Executors
 
 object Demo {
 
@@ -24,5 +25,11 @@ object Demo {
         }
 
         cluster.start()
+
+        val clientsCount = 1
+        val threadPool = Executors.newFixedThreadPool(clientsCount)
+        for (i in 1 .. clientsCount) {
+            threadPool.submit(DemoClient(cluster, i))
+        }
     }
 }

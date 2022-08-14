@@ -109,7 +109,7 @@ object States {
 
         val followers = HashMap<NodeID, FollowerInfo>()
         for (f in state.followers) {
-            followers[f.key] = FollowerInfo(f.value.heartbeatTs, nextIdx = prevLogEntry.index, matchIdx = 0)
+            followers[f.key] = FollowerInfo(f.value.heartbeatTs, nextIdx = prevLogEntry.index + 1, matchIdx = 0)
         }
 
         return State(
@@ -123,14 +123,22 @@ object States {
         )
     }
 
-    fun addFollower(state: State, follower: NodeID): State {
+    fun addFollower(state: State, prevLogEntry: LogEntryInfo, follower: NodeID): State {
+        return updateFollower(ok = true, state, prevLogEntry, follower)
+    }
+
+    fun updateFollower(ok: Boolean, state: State, prevLogEntry: LogEntryInfo, follower: NodeID): State {
         val followers = HashMap(state.followers)
 
         val prevFollowerInfo = followers[follower]
         if (prevFollowerInfo != null) {
-            followers[follower] = FollowerInfo(Time.now(), prevFollowerInfo.nextIdx, prevFollowerInfo.matchIdx)
+            var nextFollowerIdx = prevFollowerInfo.nextIdx
+            if (!ok) {
+                nextFollowerIdx -= 1
+            }
+            followers[follower] = FollowerInfo(Time.now(), nextFollowerIdx, prevFollowerInfo.matchIdx)
         } else {
-            followers[follower] = FollowerInfo(Time.now(), nextIdx = state.commitIdx, matchIdx = 0)
+            followers[follower] = FollowerInfo(Time.now(), nextIdx = prevLogEntry.index + 1, matchIdx = 0)
         }
 
         return State(state, followers = followers)

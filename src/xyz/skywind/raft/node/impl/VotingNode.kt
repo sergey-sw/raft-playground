@@ -17,8 +17,8 @@ import xyz.skywind.raft.utils.States
 open class VotingNode(
     final override val nodeID: NodeID,
     protected val config: Config,
-    protected val network: Network
-) : Node {
+    protected val network: Network)
+    : Node {
 
     protected val logging = LifecycleLogging(nodeID)
 
@@ -84,14 +84,14 @@ open class VotingNode(
             Role.FOLLOWER -> logging.receivedVoteResponseInFollowerState(state, response)
 
             Role.LEADER -> {
-                state = States.addFollower(state, response.voter)
+                state = States.addFollower(state, data.getLastEntry(), response.voter)
                 logging.addFollowerToLeader(state, response)
             }
 
             Role.CANDIDATE -> {
                 logging.candidateAcceptsVoteResponse(state, response)
 
-                state = States.addFollower(state, response.voter)
+                state = States.addFollower(state, data.getLastEntry(), response.voter)
                 if (config.isQuorum(state.followers.size)) {
                     state = States.candidateBecomesLeader(state, data.getLastEntry(), response)
                     logging.leaderAfterAcceptedVote(state)
@@ -124,8 +124,10 @@ open class VotingNode(
 
     @Synchronized
     protected fun processHeartbeatResponse(response: HeartbeatResponse) {
-        if (response.ok && state.term == response.followerTerm && state.role == Role.LEADER) {
-            state = States.addFollower(state, response.follower)
+        if (state.role != Role.LEADER) return
+
+        if (state.term == response.followerTerm) {
+            state = States.updateFollower(response.ok, state, data.getLastEntry(), response.follower)
         } else if (state.term < response.followerTerm) {
             logging.onFailedHeartbeat(state, response)
             state = States.stepDownToFollower(state, response)

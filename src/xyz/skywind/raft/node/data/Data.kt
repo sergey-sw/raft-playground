@@ -74,6 +74,10 @@ class Data(nodeID: NodeID) {
     fun isNotAheadOfEntry(theirPrevLogEntry: LogEntryInfo): Boolean {
         val ourLastEntry = log.getLastEntry()
 
+        if (ourLastEntry.term != theirPrevLogEntry.term) {
+            return theirPrevLogEntry.term > ourLastEntry.term
+        }
+
         return ourLastEntry.index <= theirPrevLogEntry.index
     }
 
@@ -91,7 +95,6 @@ class Data(nodeID: NodeID) {
                     is RemoveValueOperation -> applyRemove(operation)
                 }
             }
-            logger.log(Level.INFO, "Applied ${operations.size} operations")
             return operations.size
         } else {
             return 0

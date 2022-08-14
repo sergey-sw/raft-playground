@@ -3,6 +3,7 @@ package xyz.skywind.raft.node.impl
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.data.ClientAPI
+import xyz.skywind.raft.node.data.ClientAPI.*
 import xyz.skywind.raft.node.data.op.Operation
 import xyz.skywind.raft.node.data.op.RemoveValueOperation
 import xyz.skywind.raft.node.data.op.SetValueOperation
@@ -36,8 +37,8 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
     }
 
     @Synchronized
-    override fun get(key: String): ClientAPI.GetOperationResponse {
-        return ClientAPI.GetOperationResponse(
+    override fun get(key: String): GetOperationResponse {
+        return GetOperationResponse(
             success = (state.role == Role.LEADER),
             data = data.getByKey(key),
             leaderInfo = state.leaderInfo
@@ -45,23 +46,23 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
     }
 
     @Synchronized
-    override fun set(key: String, value: ByteArray): ClientAPI.SetOperationResponse {
+    override fun set(key: String, value: ByteArray): SetOperationResponse {
         if (state.role != Role.LEADER)
-            return ClientAPI.SetOperationResponse(success = false, leaderInfo = state.leaderInfo)
+            return SetOperationResponse(success = false, leaderInfo = state.leaderInfo)
 
         val success = execute(SetValueOperation(state.term, key, value))
 
-        return ClientAPI.SetOperationResponse(success, state.leaderInfo)
+        return SetOperationResponse(success, state.leaderInfo)
     }
 
     @Synchronized
-    override fun remove(key: String): ClientAPI.RemoveOperationResponse {
+    override fun remove(key: String): RemoveOperationResponse {
         if (state.role != Role.LEADER)
-            return ClientAPI.RemoveOperationResponse(success = false, leaderInfo = state.leaderInfo)
+            return RemoveOperationResponse(success = false, leaderInfo = state.leaderInfo)
 
         val success = execute(RemoveValueOperation(state.term, key))
 
-        return ClientAPI.RemoveOperationResponse(success = success, leaderInfo = state.leaderInfo)
+        return RemoveOperationResponse(success, leaderInfo = state.leaderInfo)
     }
 
     private fun execute(operation: Operation): Boolean {
