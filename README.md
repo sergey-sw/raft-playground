@@ -6,9 +6,12 @@ Key entities in the codebase:
 - `Config` contains basic algorithm settings
 - `Cluster` is just a set of nodes
 - `Node` represents a node in a cluster. 
-  - Node has unique ID and internal `State`.
-  - Nodes communicate with each other via network
+  - Implementation is hierarchical:
+    - `VotingNode` contains code to support leader election
+    - `DataNode` extends `VotingNode` and implements `ClientAPI` (data operations)
+  - Node has unique `NodeID` and internal `State`.
+  - Nodes communicate with each other via `Network`
 - `Network` simulates a computer network.
-  - Network may delay packet delivery
-  - Network can lose or duplicate packets  
-  - Network may have short-term partitions
+  - It may delay packet delivery
+  - It can lose or duplicate packets  
+  - It may have short-term partitions

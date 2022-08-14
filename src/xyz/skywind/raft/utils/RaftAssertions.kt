@@ -1,9 +1,9 @@
 package xyz.skywind.raft.utils
 
-import xyz.skywind.raft.node.NodeID
+import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.rpc.VoteRequest
-import xyz.skywind.raft.node.State
-import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.node.model.State
+import xyz.skywind.raft.node.model.Term
 
 object RaftAssertions {
 

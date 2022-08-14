@@ -1,4 +1,4 @@
-package xyz.skywind.raft.node
+package xyz.skywind.raft.node.model
 
 @JvmInline
 value class Term(val num: Long) {

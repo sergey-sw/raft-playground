@@ -2,19 +2,13 @@ package xyz.skywind.raft
 
 import xyz.skywind.raft.cluster.Cluster
 import xyz.skywind.raft.cluster.Config
-import xyz.skywind.raft.node.NodeID
-import xyz.skywind.raft.node.NodeImpl
+import xyz.skywind.raft.node.impl.DataNode
+import xyz.skywind.raft.node.model.NodeID
 
 object Demo {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        // setup logging
-        System.setProperty(
-                "java.util.logging.SimpleFormatter.format",
-                "%1\$tF %1\$tT.%1\$tL %3\$s %4\$s %5\$s%6\$s%n"
-        )
-
         val clusterConfig = Config(
                 nodeCount = 5,
                 electionTimeoutMinMs = 150,
@@ -25,7 +19,7 @@ object Demo {
         val cluster = Cluster(clusterConfig)
         for (i in 1..clusterConfig.nodeCount) {
             cluster.add(
-                    NodeImpl(NodeID("n$i"), clusterConfig, cluster.network)
+                    DataNode(NodeID("n$i"), clusterConfig, cluster.network)
             )
         }
 

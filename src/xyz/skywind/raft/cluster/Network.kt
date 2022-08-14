@@ -2,7 +2,7 @@ package xyz.skywind.raft.cluster
 
 import xyz.skywind.raft.rpc.*
 import xyz.skywind.raft.node.Node
-import xyz.skywind.raft.node.NodeID
+import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
 import java.util.*

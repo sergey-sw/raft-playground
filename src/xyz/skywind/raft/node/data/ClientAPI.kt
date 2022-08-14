@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node.data
 
-import xyz.skywind.raft.node.State.LeaderInfo
+import xyz.skywind.raft.node.model.State.LeaderInfo
 
 interface ClientAPI {
 

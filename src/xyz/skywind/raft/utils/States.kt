@@ -2,11 +2,11 @@ package xyz.skywind.raft.utils
 
 import xyz.skywind.raft.rpc.VoteRequest
 import xyz.skywind.raft.rpc.VoteResponse
-import xyz.skywind.raft.node.NodeID
-import xyz.skywind.raft.node.Role
-import xyz.skywind.raft.node.State
-import xyz.skywind.raft.node.State.*
-import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.raft.node.model.Role
+import xyz.skywind.raft.node.model.State
+import xyz.skywind.raft.node.model.State.*
+import xyz.skywind.raft.node.model.Term
 import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.raft.rpc.HeartbeatResponse
@@ -144,5 +144,13 @@ object States {
     fun updateLeaderHeartbeat(state: State): State {
         checkNotNull(state.leaderInfo)
         return State(state, leader = LeaderInfo(state.leaderInfo.leader, Time.now()))
+    }
+
+    fun incCommitIndex(state: State): State {
+        return State(state, commitIdx = state.commitIdx + 1)
+    }
+
+    fun incAppliedIndex(state: State): State {
+        return State(state, appliedIdx = state.appliedIdx + 1)
     }
 }

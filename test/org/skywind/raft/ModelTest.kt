@@ -1,11 +1,11 @@
 package org.skywind.raft
 
 import xyz.skywind.raft.cluster.Config
-import xyz.skywind.raft.node.NodeID
-import xyz.skywind.raft.node.Role
-import xyz.skywind.raft.node.State
-import xyz.skywind.raft.node.State.*
-import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.raft.node.model.Role
+import xyz.skywind.raft.node.model.State
+import xyz.skywind.raft.node.model.State.*
+import xyz.skywind.raft.node.model.Term
 import xyz.skywind.raft.utils.States
 import xyz.skywind.tools.Time
 

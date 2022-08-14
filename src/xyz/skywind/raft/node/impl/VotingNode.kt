@@ -1,25 +1,31 @@
-package xyz.skywind.raft.node
+package xyz.skywind.raft.node.impl
 
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.cluster.Network
-import xyz.skywind.raft.node.data.ClientAPI
-import xyz.skywind.raft.node.data.ClientAPI.*
+import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.data.Data
-import xyz.skywind.raft.node.data.op.RemoveValueOperation
-import xyz.skywind.raft.node.data.op.SetValueOperation
-import xyz.skywind.raft.rpc.*
-import xyz.skywind.raft.utils.RaftAssertions.verifyRequestHasHigherTerm
+import xyz.skywind.raft.node.debug.LifecycleLogging
+import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.raft.node.model.Role
+import xyz.skywind.raft.rpc.AppendEntries
+import xyz.skywind.raft.rpc.HeartbeatResponse
+import xyz.skywind.raft.rpc.VoteRequest
+import xyz.skywind.raft.rpc.VoteResponse
+import xyz.skywind.raft.utils.RaftAssertions
 import xyz.skywind.raft.utils.States
 
-class NodeImpl(override val nodeID: NodeID, private val config: Config, private val network: Network) : Node, ClientAPI {
+open class VotingNode(
+    final override val nodeID: NodeID,
+    protected val config: Config,
+    protected val network: Network) : Node {
 
-    private val logging = LifecycleLogging(nodeID)
+    protected val logging = LifecycleLogging(nodeID)
 
-    private var state = States.initialState()
+    protected var state = States.initialState()
 
-    private val data = Data()
+    protected val data = Data(nodeID)
 
-    private val promotionTask = PromotionTask(
+    private val timerTask = TimerTask(
         { state }, config, logging,
         { maybeUpgradeFromFollowerToCandidate() },
         { stepDownFromCandidateToFollower() },
@@ -28,58 +34,37 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
     override fun start() {
         logging.nodeStarted()
-        promotionTask.start()
-    }
-
-    @Synchronized
-    override fun get(key: String): GetOperationResponse {
-        return GetOperationResponse(success = (state.role == Role.LEADER), data.getByKey(key), state.leaderInfo)
-    }
-
-    @Synchronized
-    override fun set(key: String, value: ByteArray): SetOperationResponse {
-        if (state.role != Role.LEADER)
-            return SetOperationResponse(success = false, leaderInfo = state.leaderInfo)
-
-        val operation = SetValueOperation(state.term, key, value)
-        val prevLogEntry = data.append(operation)
-
-        val request = AppendEntries(state, prevLogEntry, listOf(operation))
-        val futures = network.broadcast(from = nodeID, request) { processHeartbeatResponse(it) }
-        val success = config.isQuorum(RpcUtils.countSuccess(futures))
-        // TODO ok, what now? seems like we can commit and notify followers
-
-        return SetOperationResponse(success, state.leaderInfo)
-    }
-
-    @Synchronized
-    override fun remove(key: String): RemoveOperationResponse {
-        if (state.role != Role.LEADER)
-            return RemoveOperationResponse(success = false, leaderInfo = state.leaderInfo)
-
-        data.append(RemoveValueOperation(state.term, key))
-        // await synchronization
-        return RemoveOperationResponse(success = true, leaderInfo = state.leaderInfo)
+        timerTask.start()
     }
 
     @Synchronized
     override fun process(req: VoteRequest): VoteResponse {
         if (state.term > req.candidateTerm) {
             logging.rejectVoteRequest(state, req)
-            return VoteResponse(granted = false, requestTerm = req.candidateTerm, voter = nodeID, voterTerm = state.term)
+            return VoteResponse(
+                granted = false,
+                requestTerm = req.candidateTerm,
+                voter = nodeID,
+                voterTerm = state.term
+            )
         } else if (state.votedInThisTerm(req.candidateTerm)) {
-            return VoteResponse(granted = state.votedFor(req.candidate), requestTerm = state.term, voter = nodeID, voterTerm = state.term)
+            return VoteResponse(
+                granted = state.votedFor(req.candidate),
+                requestTerm = state.term,
+                voter = nodeID,
+                voterTerm = state.term
+            )
         }
 
-        if (state.role == Role.FOLLOWER) {
-            state = States.voteFor(state, req.candidateTerm, req.candidate)
+        state = if (state.role == Role.FOLLOWER) {
+            States.voteFor(state, req.candidateTerm, req.candidate)
         } else {
-            verifyRequestHasHigherTerm(state, req)
+            RaftAssertions.verifyRequestHasHigherTerm(state, req)
             logging.steppingDownToFollower(state, req)
-            state = States.stepDownToFollower(state, req)
+            States.stepDownToFollower(state, req)
         }
         logging.voted(req)
-        promotionTask.resetElectionTimeout()
+        timerTask.resetElectionTimeout()
 
         return VoteResponse(granted = true, requestTerm = req.candidateTerm, voter = nodeID, voterTerm = state.term)
     }
@@ -119,34 +104,37 @@ class NodeImpl(override val nodeID: NodeID, private val config: Config, private 
 
     @Synchronized
     override fun process(req: AppendEntries): HeartbeatResponse {
-        if (state.term == req.term && state.leaderInfo?.leader == req.leader) {
-            state = States.updateLeaderHeartbeat(state)
-            return HeartbeatResponse(ok = true, follower = nodeID, followerTerm = state.term)
-        } else if (state.canAcceptTerm(req.term)) {
-            state = States.fromAnyRoleToFollower(state, req)
-            logging.acceptedLeadership(req)
-            return HeartbeatResponse(ok = true, follower = nodeID, followerTerm = state.term)
-        } else {
+        if (state.term > req.term || !data.matchesLeaderLog(req)) {
             logging.onStrangeHeartbeat(state, req)
             return HeartbeatResponse(ok = false, follower = nodeID, followerTerm = state.term)
         }
+
+        if (state.term == req.term && state.leaderInfo?.leader == req.leader) {
+            state = States.updateLeaderHeartbeat(state)
+        } else {
+            state = States.fromAnyRoleToFollower(state, req)
+            logging.acceptedLeadership(req)
+        }
+        data.appendOnFollower(req.prevLogEntryInfo, req.entries)
+
+        return HeartbeatResponse(ok = true, follower = nodeID, followerTerm = state.term)
     }
 
     @Synchronized
-    private fun processHeartbeatResponse(response: HeartbeatResponse) {
+    protected fun processHeartbeatResponse(response: HeartbeatResponse) {
         if (response.ok && state.term == response.followerTerm && state.role == Role.LEADER) {
             state = States.addFollower(state, response.follower)
         } else if (state.term < response.followerTerm) {
             logging.onFailedHeartbeat(state, response)
             state = States.stepDownToFollower(state, response)
-            promotionTask.resetElectionTimeout()
+            timerTask.resetElectionTimeout()
         }
     }
 
     private fun stepDownToFollowerBecauseOfHigherTerm(voteResponse: VoteResponse) {
         state = States.stepDownToFollowerBecauseOfHigherTerm(state, voteResponse.voterTerm)
         logging.stepDownToFollower(state, voteResponse)
-        promotionTask.resetElectionTimeout()
+        timerTask.resetElectionTimeout()
     }
 
     @Synchronized

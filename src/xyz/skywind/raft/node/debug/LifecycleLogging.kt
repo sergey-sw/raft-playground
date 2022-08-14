@@ -1,5 +1,9 @@
-package xyz.skywind.raft.node
+package xyz.skywind.raft.node.debug
 
+import xyz.skywind.raft.node.data.op.Operation
+import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.raft.node.model.Role
+import xyz.skywind.raft.node.model.State
 import xyz.skywind.raft.rpc.*
 import xyz.skywind.tools.Logging
 import java.util.logging.Level
@@ -17,8 +21,7 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun acceptedLeadership(msg: AppendEntries) {
-        log(Level.INFO, "Node $nodeID received ${msg.javaClass.simpleName} and accepted " +
-                "leadership of node ${msg.leader} in term ${msg.term}")
+        log(Level.INFO, "Node $nodeID received $msg and accepted leadership of node ${msg.leader} in term ${msg.term}")
     }
 
     fun steppingDownToFollower(state: State, msg: VoteRequest) {
@@ -32,8 +35,8 @@ class LifecycleLogging(private val nodeID: NodeID) {
     }
 
     fun receivedVoteResponseInFollowerState(state: State, response: VoteResponse) {
-        log(Level.INFO, "Ignoring {granted=${response.granted}} VoteResponse for term ${response.requestTerm}, " +
-                "because node is: ${state.role} in term ${state.term}")
+        log(Level.INFO, "Ignoring {granted=${response.granted}} VoteResponse from ${response.voter} for " +
+                "term ${response.requestTerm}, because node is: ${state.role} in term ${state.term}")
     }
 
     fun addFollowerToLeader(state: State, response: VoteResponse) {
@@ -95,5 +98,13 @@ class LifecycleLogging(private val nodeID: NodeID) {
     fun onFailedHeartbeat(state: State, response: HeartbeatResponse) {
         log(Level.INFO, "Received heartbeat from ${response.follower} at term ${response.followerTerm}. " +
                 "Current term is ${state.term}. Stepping down to ${Role.FOLLOWER}")
+    }
+
+    fun onSuccessOperation(state: State, operation: Operation) {
+        log(Level.INFO, "Successfully executed $operation. CommitIdx: ${state.commitIdx}, AppliedIdx: ${state.appliedIdx}")
+    }
+
+    fun onFailedOperation(state: State, operation: Operation) {
+        log(Level.WARNING, "Failed to execute $operation. CommitIdx: ${state.commitIdx}, AppliedIdx: ${state.appliedIdx}")
     }
 }

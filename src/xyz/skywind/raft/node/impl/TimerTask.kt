@@ -1,6 +1,9 @@
-package xyz.skywind.raft.node
+package xyz.skywind.raft.node.impl
 
 import xyz.skywind.raft.cluster.Config
+import xyz.skywind.raft.node.debug.LifecycleLogging
+import xyz.skywind.raft.node.model.Role
+import xyz.skywind.raft.node.model.State
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
 import xyz.skywind.tools.Time
@@ -11,12 +14,12 @@ import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
 import java.util.logging.Level
 
-class PromotionTask(private val stateGetter: Supplier<State>,
-                    private val cfg: Config,
-                    private val logging: LifecycleLogging,
-                    private val executeWhenFollower: Runnable,
-                    private val executeWhenCandidate: Runnable,
-                    private val executeWhenLeader: Runnable) {
+class TimerTask(private val stateGetter: Supplier<State>,
+                private val cfg: Config,
+                private val logging: LifecycleLogging,
+                private val followerTask: Runnable,
+                private val candidateTask: Runnable,
+                private val leaderTask: Runnable) {
 
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
@@ -44,15 +47,15 @@ class PromotionTask(private val stateGetter: Supplier<State>,
 
         nextExecutionTime = when (stateGetter.get().role) {
             Role.FOLLOWER -> {
-                executeWhenFollower.run()
+                followerTask.run()
                 Time.now() + cfg.electionTimeoutMaxMs
             }
             Role.CANDIDATE -> {
-                executeWhenCandidate.run()
+                candidateTask.run()
                 Time.now() + getRandomElectionTimeout()
             }
             Role.LEADER -> {
-                executeWhenLeader.run()
+                leaderTask.run()
                 Time.now() + cfg.heartbeatTickPeriod
             }
         }
