@@ -4,8 +4,10 @@ import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.data.op.Operation
 import xyz.skywind.raft.node.data.op.RemoveValueOperation
 import xyz.skywind.raft.node.data.op.SetValueOperation
+import xyz.skywind.raft.node.model.State
 import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.tools.Logging
+import java.lang.Integer.min
 import java.util.logging.Level
 
 class Data(nodeID: NodeID) {
@@ -26,12 +28,12 @@ class Data(nodeID: NodeID) {
 
     @Synchronized
     fun applyOperation(op: SetValueOperation) {
-        kv[op.key] = op.value
+        applySet(op)
     }
 
     @Synchronized
     fun applyOperation(op: RemoveValueOperation) {
-        kv.remove(op.key)
+        applyRemove(op)
     }
 
     @Synchronized
@@ -59,10 +61,41 @@ class Data(nodeID: NodeID) {
         val matches = log.contains(req.prevLogEntryInfo)
 
         if (!matches) {
-            logger.log(Level.WARNING, "Node last entry ${getLastEntry()} does not match with " +
-                    "leader's prev entry ${req.prevLogEntryInfo}")
+            logger.log(
+                Level.WARNING, "Node last entry ${getLastEntry()} does not match with " +
+                        "leader's prev entry ${req.prevLogEntryInfo}"
+            )
         }
 
         return matches
+    }
+
+    fun maybeApplyEntries(req: AppendEntries, followerState: State): Int {
+        val leaderCommitIdx = req.commitIndex
+        val followerCommitIdx = followerState.commitIdx
+
+        if (leaderCommitIdx > followerCommitIdx) {
+            val newFollowerCommitIdx = min(leaderCommitIdx, log.getLastEntry().index)
+
+            val operations = log.getOperationsBetween(followerCommitIdx + 1, newFollowerCommitIdx + 1)
+            for (operation in operations) {
+                when (operation) {
+                    is SetValueOperation -> applySet(operation)
+                    is RemoveValueOperation -> applyRemove(operation)
+                }
+            }
+            logger.log(Level.INFO, "Applied ${operations.size} operations")
+            return operations.size
+        } else {
+            return 0
+        }
+    }
+
+    private fun applySet(op: SetValueOperation) {
+        kv[op.key] = op.value
+    }
+
+    private fun applyRemove(op: RemoveValueOperation) {
+        kv.remove(op.key)
     }
 }

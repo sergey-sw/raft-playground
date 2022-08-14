@@ -141,7 +141,7 @@ object States {
         return State(state, term = term, voteInfo = VoteInfo(votedFor = candidate, votedAt = Time.now()))
     }
 
-    fun updateLeaderHeartbeat(state: State): State {
+    fun updateLeaderHeartbeatTime(state: State): State {
         checkNotNull(state.leaderInfo)
         return State(state, leader = LeaderInfo(state.leaderInfo.leader, Time.now()))
     }
@@ -152,5 +152,13 @@ object States {
 
     fun incAppliedIndex(state: State): State {
         return State(state, appliedIdx = state.appliedIdx + 1)
+    }
+
+    fun incCommitAndAppliedIndices(state: State, cnt: Int): State {
+        return State(
+            state,
+            commitIdx = state.commitIdx + cnt,
+            appliedIdx = state.appliedIdx + cnt
+        )
     }
 }

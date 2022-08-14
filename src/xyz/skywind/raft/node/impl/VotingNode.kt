@@ -104,18 +104,19 @@ open class VotingNode(
 
     @Synchronized
     override fun process(req: AppendEntries): HeartbeatResponse {
-        if (state.term > req.term || !data.matchesLeaderLog(req)) {
+        if (state.term > req.term || !matchesLeaderLog(req)) {
             logging.onStrangeHeartbeat(state, req)
             return HeartbeatResponse(ok = false, follower = nodeID, followerTerm = state.term)
         }
 
         if (state.term == req.term && state.leaderInfo?.leader == req.leader) {
-            state = States.updateLeaderHeartbeat(state)
+            state = States.updateLeaderHeartbeatTime(state)
         } else {
             state = States.fromAnyRoleToFollower(state, req)
             logging.acceptedLeadership(req)
         }
-        data.appendOnFollower(req.prevLogEntryInfo, req.entries)
+
+        handleEntries(req)
 
         return HeartbeatResponse(ok = true, follower = nodeID, followerTerm = state.term)
     }
@@ -161,5 +162,15 @@ open class VotingNode(
             network.broadcast(nodeID, msg) { processHeartbeatResponse(it) }
             logging.onHeartbeatBroadcast(state)
         }
+    }
+
+    // ========== extension points for DataNode ============= /
+
+    protected open fun handleEntries(req: AppendEntries) {
+
+    }
+
+    protected open fun matchesLeaderLog(req: AppendEntries): Boolean {
+        return true
     }
 }

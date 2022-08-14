@@ -14,6 +14,20 @@ import xyz.skywind.raft.utils.States
 
 class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(nodeID, config, network), ClientAPI {
 
+    override fun handleEntries(req: AppendEntries) {
+        data.appendOnFollower(req.prevLogEntryInfo, req.entries)
+
+        val appliedOperationCount = data.maybeApplyEntries(req, state)
+
+        state = States.incCommitAndAppliedIndices(state, appliedOperationCount)
+
+        logging.onAfterAppendEntries(state, req, appliedOperationCount)
+    }
+
+    override fun matchesLeaderLog(req: AppendEntries): Boolean {
+        return data.matchesLeaderLog(req)
+    }
+
     @Synchronized
     override fun get(key: String): ClientAPI.GetOperationResponse {
         return ClientAPI.GetOperationResponse(
@@ -58,7 +72,6 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
             when (operation) {
                 is RemoveValueOperation -> data.applyOperation(operation)
                 is SetValueOperation -> data.applyOperation(operation)
-                else -> throw UnsupportedOperationException("Can't handle $operation")
             }
             state = States.incAppliedIndex(state)
             logging.onSuccessOperation(state, operation)

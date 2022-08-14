@@ -64,6 +64,10 @@ class OperationLog(nodeID: NodeID) {
         return log[index].term == term
     }
 
+    fun getOperationsBetween(from: Int, to: Int): List<Operation> {
+        return log.subList(from, to)
+    }
+
     fun get(index: Int): Operation {
         return log[index]
     }

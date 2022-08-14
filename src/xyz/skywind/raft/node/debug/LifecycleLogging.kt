@@ -107,4 +107,20 @@ class LifecycleLogging(private val nodeID: NodeID) {
     fun onFailedOperation(state: State, operation: Operation) {
         log(Level.WARNING, "Failed to execute $operation. CommitIdx: ${state.commitIdx}, AppliedIdx: ${state.appliedIdx}")
     }
+
+    fun onAfterAppendEntries(state: State, req: AppendEntries, appliedOperationCount: Int) {
+        if (req.entries.isNotEmpty()) {
+            if (appliedOperationCount == 0) {
+                log(
+                    Level.INFO, "No ops were applied. Leader commit idx: ${req.commitIndex}, " +
+                            "follower commit idx: ${state.commitIdx}, apply idx: ${state.appliedIdx}"
+                )
+            } else {
+                log(
+                    Level.INFO, "Applied $appliedOperationCount log entries. Leader commit idx: ${req.commitIndex}, " +
+                            "follower commit idx: ${state.commitIdx}, apply idx: ${state.appliedIdx}"
+                )
+            }
+        }
+    }
 }
