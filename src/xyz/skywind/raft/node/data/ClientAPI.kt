@@ -9,15 +9,17 @@ interface ClientAPI {
 
     fun get(key: String): GetOperationResponse
 
-    fun set(key: String, value: ByteArray): SetOperationResponse
+    fun set(key: String, value: String): SetOperationResponse
 
     fun remove(key: String): RemoveOperationResponse
 
     // -------------------------------------------------------- //
 
-    class SetOperationResponse(val success: Boolean, val leaderInfo: LeaderInfo?)
+    class SetOperationResponse(success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
 
-    class GetOperationResponse(val success: Boolean, val data: ByteArray?, val leaderInfo: LeaderInfo?)
+    class GetOperationResponse(val data: String?, success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
 
-    class RemoveOperationResponse(val success: Boolean, val leaderInfo: LeaderInfo?)
+    class RemoveOperationResponse(success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
+
+    sealed class ClientResponse(val success: Boolean, val leaderInfo: LeaderInfo?)
 }

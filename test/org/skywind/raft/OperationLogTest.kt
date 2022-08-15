@@ -21,7 +21,7 @@ object OperationLogTest {
     private fun testAppendEmptyLog() {
         val log = OperationLog(NodeID("test"))
 
-        val op = SetValueOperation(Term(1), "key", "value".toByteArray())
+        val op = SetValueOperation(Term(1), "key", "value")
 
         log.append(LogEntryInfo.FIRST, listOf(op))
 
@@ -68,6 +68,6 @@ object OperationLogTest {
     }
 
     private fun getOp(id: Int): SetValueOperation {
-        return SetValueOperation(Term(1), "key$id", "value$id".toByteArray())
+        return SetValueOperation(Term(1), "key$id", "value$id")
     }
 }

@@ -16,7 +16,7 @@ class Network {
         const val MESSAGE_DELIVERY_DELAY_MILLIS = 5
         const val MESSAGE_LOSS_PROBABILITY = 0
         const val MESSAGE_DUPLICATION_PROBABILITY = 0
-        const val PARTITIONS_ENABLED = true
+        const val PARTITIONS_ENABLED = false
     }
 
     private val nodes: MutableList<Node> = ArrayList()

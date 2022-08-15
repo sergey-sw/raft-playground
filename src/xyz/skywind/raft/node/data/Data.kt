@@ -12,18 +12,14 @@ import java.util.logging.Level
 
 class Data(nodeID: NodeID) {
 
-    companion object {
-        val EMPTY_VALUE = ByteArray(0)
-    }
-
     private val logger = Logging.getLogger("Data-$nodeID")
 
     private val log = OperationLog(nodeID)
 
-    private val kv = HashMap<String, ByteArray>()
+    private val kv = HashMap<String, String>()
 
-    fun getByKey(key: String): ByteArray {
-        return kv[key] ?: EMPTY_VALUE
+    fun getByKey(key: String): String {
+        return kv[key] ?: ""
     }
 
     @Synchronized
@@ -99,6 +95,10 @@ class Data(nodeID: NodeID) {
         } else {
             return 0
         }
+    }
+
+    fun dumpData(): String {
+        return kv.toString()
     }
 
     private fun applySet(op: SetValueOperation) {
