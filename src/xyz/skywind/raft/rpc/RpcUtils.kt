@@ -19,6 +19,8 @@ object RpcUtils {
             }
             count
         } catch (e: TimeoutException) {
+            // could not obtain result of CompletionFuture execution on some follower within timeout
+            // will try again
             -1
         }
     }

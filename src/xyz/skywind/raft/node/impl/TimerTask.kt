@@ -42,6 +42,12 @@ class TimerTask(private val stateGetter: Supplier<State>,
         }
     }
 
+    fun resetHeartbeatTimeout() {
+        if (stateGetter.get().role == Role.LEADER) {
+            nextExecutionTime = Time.now() + cfg.heartbeatTickPeriod
+        }
+    }
+
     private fun execute() {
         check(Time.now() >= nextExecutionTime) { "Attempt to execute task before the specified time" }
 

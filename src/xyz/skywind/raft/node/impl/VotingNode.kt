@@ -19,24 +19,24 @@ import java.util.concurrent.locks.ReentrantLock
 open class VotingNode(
     final override val nodeID: NodeID,
     protected val config: Config,
-    protected val network: Network)
-    : Node {
+    protected val network: Network
+) : Node {
 
     protected val logging = LifecycleLogging(nodeID)
-
-    protected val lock = ReentrantLock()
-    protected val appendEntriesResponseCondition: Condition = lock.newCondition()
 
     protected var state = States.initialState()
 
     protected val data = Data(nodeID)
 
-    private val timerTask = TimerTask(
+    protected val timerTask = TimerTask(
         { state }, config, logging,
         { maybeUpgradeFromFollowerToCandidate() },
         { stepDownFromCandidateToFollower() },
         { sendHeartbeat() }
     )
+
+    protected val stateLock = ReentrantLock()
+    protected val appendEntriesResponseCondition: Condition = stateLock.newCondition()
 
     override fun start() {
         logging.nodeStarted()
@@ -44,7 +44,7 @@ open class VotingNode(
     }
 
     override fun process(req: VoteRequest): VoteResponse {
-        lock.lock()
+        stateLock.lock()
         try {
             if (state.term > req.candidateTerm || !matchesCandidateLog(req)) {
                 logging.rejectVoteRequest(state, req)
@@ -75,12 +75,12 @@ open class VotingNode(
 
             return VoteResponse(granted = true, requestTerm = req.candidateTerm, voter = nodeID, voterTerm = state.term)
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
     private fun processVoteResponse(response: VoteResponse) {
-        lock.lock()
+        stateLock.lock()
         try {
             if (response.voteDenied()) {
                 logging.onDeniedVoteResponse(state, response)
@@ -112,12 +112,12 @@ open class VotingNode(
                 }
             }
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
     override fun process(req: AppendEntries): HeartbeatResponse {
-        lock.lock()
+        stateLock.lock()
         try {
             if (state.term > req.term || !matchesLeaderLog(req)) {
                 logging.onStrangeHeartbeat(state, req)
@@ -131,21 +131,24 @@ open class VotingNode(
                 logging.acceptedLeadership(req)
             }
 
-            handleEntries(req)
-
-            return HeartbeatResponse(ok = true, follower = nodeID, followerTerm = state.term)
+            return HeartbeatResponse(
+                ok = true,
+                follower = nodeID,
+                followerTerm = state.term,
+                followerLastEntryIdx = handleEntries(req)
+            )
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
     protected fun processHeartbeatResponse(response: HeartbeatResponse) {
-        lock.lock()
+        stateLock.lock()
         try {
             if (state.role != Role.LEADER) return
 
             if (state.term == response.followerTerm) {
-                state = States.updateFollower(response.ok, state, data.getLastEntry(), response.follower)
+                state = States.updateFollower(response.ok, state, response.followerLastEntryIdx, response.follower)
             } else if (state.term < response.followerTerm) {
                 logging.onFailedHeartbeat(state, response)
                 state = States.stepDownToFollower(state, response)
@@ -154,7 +157,7 @@ open class VotingNode(
 
             appendEntriesResponseCondition.signal()
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
@@ -165,58 +168,66 @@ open class VotingNode(
     }
 
     private fun maybeUpgradeFromFollowerToCandidate() {
-        lock.lock()
+        stateLock.lock()
         try {
             if (state.needSelfPromotion(config)) {
                 state = States.becomeCandidate(state, nodeID) // if there's no leader yet, let's promote ourselves
                 network.broadcast(
-                    nodeID,
-                    VoteRequest(state.term, nodeID, data.getLastEntry())
-                ) { processVoteResponse(it) }
+                    from = nodeID,
+                    request = VoteRequest(state.term, nodeID, data.getLastEntry()),
+                    callback = { processVoteResponse(it) }
+                )
                 logging.promotedToCandidate(state)
             }
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
     private fun stepDownFromCandidateToFollower() {
-        lock.lock()
+        stateLock.lock()
         try {
             if (state.role == Role.CANDIDATE) {
                 state = States.stepDownToFollowerOnElectionTimeout(state)
                 logging.stepDownFromCandidateToFollower(state)
             }
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
 
     private fun sendHeartbeat() {
-        lock.lock()
+        stateLock.lock()
         try {
             if (state.role == Role.LEADER) {
-                val msg = AppendEntries(state, data.getLastEntry(), listOf())
-                network.broadcast(nodeID, msg) { processHeartbeatResponse(it) }
+                broadcastHeartbeat()
                 logging.onHeartbeatBroadcast(state)
             }
         } finally {
-            lock.unlock()
+            stateLock.unlock()
         }
     }
 
     // ========== extension points for DataNode ============= /
 
-    protected open fun handleEntries(req: AppendEntries) {
-
+    protected open fun broadcastHeartbeat() {
+        network.broadcast(
+            from = nodeID,
+            requestBuilder = { AppendEntries(state, data.getLastEntry(), listOf()) },
+            callback = { processHeartbeatResponse(it) }
+        )
     }
 
-    protected open fun matchesLeaderLog(req: AppendEntries): Boolean {
+    protected open fun handleEntries(request: AppendEntries): Int {
+        return 0
+    }
+
+    protected open fun matchesLeaderLog(request: AppendEntries): Boolean {
         return true
     }
 
-    protected open fun matchesCandidateLog(req: VoteRequest): Boolean {
+    protected open fun matchesCandidateLog(request: VoteRequest): Boolean {
         return true
     }
 }

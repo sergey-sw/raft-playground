@@ -26,10 +26,10 @@ object Demo {
 
         cluster.start()
 
-        val clientsCount = 1
+        val clientsCount = 5
         val threadPool = Executors.newFixedThreadPool(clientsCount)
-        for (i in 1 .. clientsCount) {
-            threadPool.submit(DemoClient(cluster, i))
+        for (clientID in 1 .. clientsCount) {
+            threadPool.submit(DemoClient(cluster, clientID))
         }
     }
 }

@@ -4,11 +4,13 @@ import xyz.skywind.raft.cluster.Cluster
 import xyz.skywind.raft.node.data.ClientAPI
 import xyz.skywind.raft.node.data.ClientAPI.*
 import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.logging.Level
 import kotlin.collections.HashMap
+import kotlin.system.exitProcess
 
 // TODO check log replication conflicts on unexpected leader changes
 class DemoClient(val cluster: Cluster, id: Int) : Runnable {
@@ -28,13 +30,22 @@ class DemoClient(val cluster: Cluster, id: Int) : Runnable {
 
     override fun run() {
         while (true) {
-            Thread.sleep(5_000)
-            execute(cluster.getAnyNode(), ops.random(), keys.random(), values.random(), retry = true)
+            Thread.sleep(Delay.between(1000L, 2000L))
+
+            val clientAPI =
+                if (lastKnownLeader != null)
+                    cluster.getNode(lastKnownLeader!!)
+                else
+                    cluster.getAnyNode()
+
+            execute(clientAPI, ops.random(), keys.random(), values.random(), canRetry = true)
+
+            checkDataConsistency()
         }
     }
 
-    private fun execute(clientAPI: ClientAPI, op: String, key: String, value: String, retry: Boolean) {
-        onBeforeRequest(clientAPI, op, key, value, retry)
+    private fun execute(clientAPI: ClientAPI, op: String, key: String, value: String, canRetry: Boolean) {
+        onBeforeRequest(clientAPI, op, key, value, canRetry)
 
         val response = execute(clientAPI, op, key, value)
         if (response.success) {
@@ -42,21 +53,25 @@ class DemoClient(val cluster: Cluster, id: Int) : Runnable {
             onSuccess(op, key, value, clientAPI)
         } else {
             val leader = response.leaderInfo
-            if (leader != null) {
-                execute(cluster.getNode(leader.leader), op, key, value, retry = false)
+            if (leader != null && clientAPI.nodeID != leader.leader) {
+                execute(cluster.getNode(leader.leader), op, key, value, canRetry = false)
             } else {
-                lastKnownLeader = null
-                onFail(op, key, value, retry, clientAPI)
+                var reason = "UNKNOWN"
+                if (leader == null) {
+                    lastKnownLeader = null
+                    reason = "NO LEADER"
+                }
+                onFail(op, key, value, reason, clientAPI)
             }
         }
     }
 
-    private fun onBeforeRequest(clientAPI: ClientAPI, op: String, key: String, value: String, retry: Boolean) {
+    private fun onBeforeRequest(clientAPI: ClientAPI, op: String, key: String, value: String, canRetry: Boolean) {
         var kvLog = "for key=$key"
         if (op == "set") {
             kvLog += ", value=${(value)}"
         }
-        val action = if (retry) "Executing" else "Retrying"
+        val action = if (canRetry) "Executing" else "Retrying"
         logger.log(Level.INFO, "$action ${op.uppercase()} on node ${clientAPI.nodeID} $kvLog")
     }
 
@@ -70,17 +85,17 @@ class DemoClient(val cluster: Cluster, id: Int) : Runnable {
         }
 
         OP_LOG.add(entry)
-        logger.log(Level.INFO, "Executed $op on node ${clientAPI.nodeID}: $entry")
+        logger.log(Level.INFO, "Executed '$op' on node ${clientAPI.nodeID}: $entry")
     }
 
-    private fun onFail(op: String, key: String, value: String, retry: Boolean, clientAPI: ClientAPI) {
+    private fun onFail(op: String, key: String, value: String, reason: String, clientAPI: ClientAPI) {
         val entry = entry(status = "fail", op = op, key = key)
-        entry["response"] = if (retry) "[NO LEADER]" else "[UNKNOWN]"
+        entry["response"] = reason
         if (op == "set") {
             entry["value"] = value
         }
         OP_LOG.add(entry)
-        logger.log(Level.INFO, "Failed on node ${clientAPI.nodeID}: $entry")
+        logger.log(Level.INFO, "Failed '$op' on node ${clientAPI.nodeID}: $entry")
     }
 
     private fun entry(status: String, op: String, key: String): HashMap<String, String> {
@@ -100,5 +115,27 @@ class DemoClient(val cluster: Cluster, id: Int) : Runnable {
             "remove" -> node.remove(key)
             else -> throw IllegalArgumentException(op)
         }
+    }
+
+    private fun checkDataConsistency() {
+        val leader = lastKnownLeader
+        if (leader != null) {
+            val response = cluster.getNode(leader).getAll()
+            if (response.success) {
+                val leaderData = response.data
+
+                if (leaderData != KV) {
+                    val msg = "Leader state is inconsistent with global state.\n" +
+                            "Leader: $leaderData \n" + "Global: $KV"
+                    logger.log(Level.SEVERE, msg)
+                    fail()
+                }
+            }
+        }
+    }
+
+    private fun fail() {
+        Thread.sleep(5_000)
+        exitProcess(0)
     }
 }

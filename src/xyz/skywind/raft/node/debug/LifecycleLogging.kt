@@ -9,6 +9,7 @@ import xyz.skywind.raft.rpc.*
 import xyz.skywind.tools.Logging
 import java.util.logging.Level
 
+// TODO add state.role [F/C/L] to each message
 class LifecycleLogging(private val nodeID: NodeID) {
 
     private val logger = Logging.getLogger("raft-node-$nodeID")
@@ -134,8 +135,8 @@ class LifecycleLogging(private val nodeID: NodeID) {
         )
     }
 
-    fun onBeforeAppendEntries(operation: Operation) {
-        log(Level.INFO, "Broadcasting $operation")
+    fun onBeforeAppendEntriesBroadcast(operation: Operation, data: Data) {
+        log(Level.INFO, "Broadcasting $operation, prevLogEntry=${data.getLastEntry()}, op log: ${data.dumpLog()}")
     }
 
     fun onAfterAppendEntries(state: State, req: AppendEntries, appliedOperationCount: Int, data: Data) {
@@ -153,5 +154,13 @@ class LifecycleLogging(private val nodeID: NodeID) {
                 )
             }
         }
+    }
+
+    fun onFollowerCatchingUp(nodeID: NodeID, entries: List<Operation>) {
+        log(Level.INFO, "Sending ${entries.size} ops to follower $nodeID: $entries")
+    }
+
+    fun onLogMismatch(req: AppendEntries, opLog: String) {
+        log(Level.WARNING, "Node log does not match leader's prev entry ${req.lastLogEntryInfo}. Log: $opLog")
     }
 }

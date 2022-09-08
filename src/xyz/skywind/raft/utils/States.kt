@@ -8,6 +8,7 @@ import xyz.skywind.raft.node.model.State
 import xyz.skywind.raft.node.model.State.*
 import xyz.skywind.raft.node.model.Term
 import xyz.skywind.raft.node.data.LogEntryInfo
+import xyz.skywind.raft.node.data.OpLog
 import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.raft.rpc.HeartbeatResponse
 import xyz.skywind.tools.Time
@@ -19,8 +20,8 @@ object States {
             term = Term(0),
             voteInfo = null,
             role = Role.FOLLOWER,
-            commitIdx = -1,
-            appliedIdx = -1,
+            commitIdx =  OpLog.START_IDX,
+            appliedIdx = OpLog.START_IDX,
             leaderInfo = null,
             followers = mapOf()
         )
@@ -124,21 +125,18 @@ object States {
     }
 
     fun addFollower(state: State, prevLogEntry: LogEntryInfo, follower: NodeID): State {
-        return updateFollower(ok = true, state, prevLogEntry, follower)
+        return updateFollower(ok = true, state, prevLogEntry.index, follower)
     }
 
-    fun updateFollower(ok: Boolean, state: State, prevLogEntry: LogEntryInfo, follower: NodeID): State {
+    fun updateFollower(ok: Boolean, state: State, followerLastEntryIndex: Int, follower: NodeID): State {
         val followers = HashMap(state.followers)
 
         val prevFollowerInfo = followers[follower]
         if (prevFollowerInfo != null) {
-            var nextFollowerIdx = prevFollowerInfo.nextIdx
-            if (!ok) {
-                nextFollowerIdx -= 1
-            }
+            val nextFollowerIdx = if (ok) followerLastEntryIndex + 1 else prevFollowerInfo.nextIdx - 1
             followers[follower] = FollowerInfo(Time.now(), nextFollowerIdx, prevFollowerInfo.matchIdx)
         } else {
-            followers[follower] = FollowerInfo(Time.now(), nextIdx = prevLogEntry.index + 1, matchIdx = 0)
+            followers[follower] = FollowerInfo(Time.now(), nextIdx = followerLastEntryIndex + 1, matchIdx = 0)
         }
 
         return State(state, followers = followers)

@@ -31,6 +31,10 @@ object Logging {
         fun log(level: Level, msg: String) {
             msgQueue.add(LogEntry(msg, name, level))
         }
+
+        fun warn(msg: String) {
+            msgQueue.add(LogEntry(msg, name, Level.WARNING))
+        }
     }
 
     fun getLogger(name: String): MyLogger {

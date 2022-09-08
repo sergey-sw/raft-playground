@@ -6,67 +6,53 @@ import xyz.skywind.raft.node.data.op.RemoveValueOperation
 import xyz.skywind.raft.node.data.op.SetValueOperation
 import xyz.skywind.raft.node.model.State
 import xyz.skywind.raft.rpc.AppendEntries
-import xyz.skywind.tools.Logging
 import java.lang.Integer.min
-import java.util.logging.Level
 
 class Data(nodeID: NodeID) {
 
-    private val logger = Logging.getLogger("Data-$nodeID")
-
-    private val log = OperationLog(nodeID)
+    private val log: OpLog = OperationLog(nodeID)
 
     private val kv = HashMap<String, String>()
 
-    fun getByKey(key: String): String {
-        return kv[key] ?: ""
+    fun getByKey(key: String): String? {
+        return kv[key]
     }
 
-    @Synchronized
-    fun applyOperation(op: SetValueOperation) {
-        applySet(op)
+    fun getAll(): Map<String, String> {
+        return HashMap(kv)
     }
 
-    @Synchronized
-    fun applyOperation(op: RemoveValueOperation) {
-        applyRemove(op)
+    fun applyOperation(op: Operation) {
+        when (op) {
+            is RemoveValueOperation -> applyRemove(op)
+            is SetValueOperation -> applySet(op)
+        }
     }
 
-    @Synchronized
-    fun appendOnLeader(op: Operation): LogEntryInfo {
-        return log.append(op)
+    fun append(op: Operation) { // can be used on leader
+        log.append(getLastEntry(), listOf(op))
     }
 
-    @Synchronized
-    fun removeLastOperation() {
-        return log.removeLast()
+    fun append(leaderLastEntry: LogEntryInfo, operations: List<Operation>) {
+        log.append(leaderLastEntry, operations)
     }
 
-    @Synchronized
-    fun appendOnFollower(prevLogEntryInfo: LogEntryInfo, entries: List<Operation>) {
-        log.append(prevLogEntryInfo, entries)
+    fun getOpsFrom(fromIndex: Int): List<Operation> {
+        return log.getOperationsBetween(fromIndex, log.size())
     }
 
-    @Synchronized
     fun getLastEntry(): LogEntryInfo {
         return log.getLastEntry()
     }
 
-    @Synchronized
-    fun containsEntry(prevLogEntryInfo: LogEntryInfo): Boolean {
-        val matches = log.contains(prevLogEntryInfo)
-
-        if (!matches) {
-            logger.log(
-                Level.WARNING, "Node last entry ${getLastEntry()} does not match with " +
-                        "request prev entry $prevLogEntryInfo"
-            )
-        }
-
-        return matches
+    fun getEntryAt(index: Int): LogEntryInfo {
+        return log.getEntryAt(index)
     }
 
-    @Synchronized
+    fun containsEntry(prevLogEntryInfo: LogEntryInfo): Boolean {
+        return log.contains(prevLogEntryInfo)
+    }
+
     fun isNotAheadOfEntry(theirPrevLogEntry: LogEntryInfo): Boolean {
         val ourLastEntry = log.getLastEntry()
 
@@ -83,14 +69,8 @@ class Data(nodeID: NodeID) {
 
         if (leaderCommitIdx > followerCommitIdx) {
             val newFollowerCommitIdx = min(leaderCommitIdx, log.getLastEntry().index)
-
             val operations = log.getOperationsBetween(followerCommitIdx + 1, newFollowerCommitIdx + 1)
-            for (operation in operations) {
-                when (operation) {
-                    is SetValueOperation -> applySet(operation)
-                    is RemoveValueOperation -> applyRemove(operation)
-                }
-            }
+            operations.forEach { applyOperation(it) }
             return operations.size
         } else {
             return 0
@@ -99,6 +79,10 @@ class Data(nodeID: NodeID) {
 
     fun dumpData(): String {
         return kv.toString()
+    }
+
+    fun dumpLog(): String {
+        return log.toDetailedString()
     }
 
     private fun applySet(op: SetValueOperation) {

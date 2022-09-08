@@ -8,15 +8,17 @@ import xyz.skywind.tools.Logging
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.function.Consumer
+import java.util.function.Function
 import java.util.logging.Level
 
 class Network {
 
+    // TODO move to config
     companion object {
         const val MESSAGE_DELIVERY_DELAY_MILLIS = 5
         const val MESSAGE_LOSS_PROBABILITY = 0
         const val MESSAGE_DUPLICATION_PROBABILITY = 0
-        const val PARTITIONS_ENABLED = false
+        const val PARTITIONS_ENABLED = true
     }
 
     private val nodes: MutableList<Node> = ArrayList()
@@ -45,14 +47,14 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    fun broadcast(from: NodeID, request: AppendEntries, callback: Consumer<HeartbeatResponse>):
+    fun broadcast(from: NodeID, requestBuilder: Function<NodeID, AppendEntries>, callback: Consumer<HeartbeatResponse>):
             List<CompletableFuture<HeartbeatResponse?>> {
 
         val futures = ArrayList<CompletableFuture<HeartbeatResponse?>>()
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
-                    futures += sendLeaderHeartbeat(from, node, request, callback)
+                    futures += sendLeaderHeartbeat(from, node, requestBuilder.apply(node.nodeID), callback)
                 }
             }
         }

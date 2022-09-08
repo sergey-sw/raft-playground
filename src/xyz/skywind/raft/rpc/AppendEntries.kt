@@ -9,18 +9,18 @@ import xyz.skywind.raft.node.data.op.Operation
 data class AppendEntries(
     val term: Term, // leader's term
     val leader: NodeID,
-    val prevLogEntryInfo: LogEntryInfo, // index and term of entry preceding new entries
+    val lastLogEntryInfo: LogEntryInfo, // index and term of entry preceding new entries
     val entries: List<Operation> = listOf(),
     val commitIndex: Int // leader's commit index
 ) {
     companion object {
-        operator fun invoke(state: State, prevLogEntryInfo: LogEntryInfo, entries: List<Operation>): AppendEntries {
+        operator fun invoke(state: State, lastLogEntryInfo: LogEntryInfo, entries: List<Operation>): AppendEntries {
             checkNotNull(state.leaderInfo)
 
             return AppendEntries(
                     term = state.term,
                     leader = state.leaderInfo.leader,
-                    prevLogEntryInfo = prevLogEntryInfo,
+                    lastLogEntryInfo = lastLogEntryInfo,
                     entries = entries,
                     commitIndex = state.commitIdx
             )
@@ -28,7 +28,7 @@ data class AppendEntries(
     }
 
     override fun toString(): String {
-        return "AppendEntries(leader=${leader}, prev=$prevLogEntryInfo, commitIndex=$commitIndex, entries.size=${entries.size})"
+        return "AppendEntries(leader=${leader}, prev=$lastLogEntryInfo, commitIndex=$commitIndex, entries=${entries})"
     }
 }
 

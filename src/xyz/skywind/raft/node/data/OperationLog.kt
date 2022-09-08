@@ -3,80 +3,69 @@ package xyz.skywind.raft.node.data
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.data.op.Operation
 import xyz.skywind.tools.Logging
-import java.util.logging.Level
 
-class OperationLog(nodeID: NodeID) {
+// TODO need to rework how we handle prev/last entries. Pointer ops looks messy on caller side.
+class OperationLog(nodeID: NodeID) : OpLog {
 
     private val logger = Logging.getLogger("OperationsLog-$nodeID")
 
-    private val log = ArrayList<Operation>()
-
-    fun removeLast() {
-        log.removeLast()
+    private val operations = ArrayList<Operation>()
+    init {
+        operations.add(Operation.FIRST)
     }
 
-    fun append(op: Operation): LogEntryInfo {
-        val prevLogEntryInfo = getLastEntry()
-
-        log.add(op)
-
-        return prevLogEntryInfo
-    }
-
-    fun append(prevLogEntryInfo: LogEntryInfo, entries: List<Operation>) {
-        val index = prevLogEntryInfo.index
-
-        check(index < log.size) { "Can't find prev entry $prevLogEntryInfo in log{size=${log.size}}" }
-
-        if (index + 1 == log.size) {
-            log.addAll(entries)
-        } else {
-            logger.log(Level.WARNING, "Removing last ${log.size - index - 1} entries from log")
-            while (log.size > index + 1) {
-                val operation = log.removeLast()
-                logger.log(Level.WARNING, "Removed $operation")
+    override fun append(leaderLastEntry: LogEntryInfo, newOperations: List<Operation>) {
+        if (leaderLastEntry.index == operations.lastIndex) {
+            operations.addAll(newOperations)
+        } else if (leaderLastEntry.index < operations.size) {
+            logger.warn("Removing last ${operations.size - leaderLastEntry.index - 1} entries from log")
+            while (operations.size > leaderLastEntry.index + 1) {
+                val operation = operations.removeLast()
+                logger.warn("Removed $operation. Log.size=${operations.size}")
             }
 
-            check(log.isEmpty() || prevLogEntryInfo.term == log.last().term)
+            check(operations.isEmpty() || leaderLastEntry.term == operations.last().term)
 
-            log.addAll(entries)
+            this.operations.addAll(newOperations)
+        } else {
+            throw IllegalStateException("Can't find prev entry $leaderLastEntry in log{size=${operations.size}}")
         }
     }
 
-    fun getLastEntry(): LogEntryInfo {
-        return if (log.isEmpty())
-            LogEntryInfo.FIRST
-        else
-            LogEntryInfo(log.lastIndex, log.last().term)
+    override fun getEntryAt(index: Int): LogEntryInfo {
+        return LogEntryInfo(index, operations[index].term)
     }
 
-    fun contains(logEntry: LogEntryInfo): Boolean {
+    override fun contains(logEntry: LogEntryInfo): Boolean {
         val (index, term) = logEntry
 
-        if (index > log.size) {
+        if (index >= operations.size) {
             return false
         }
 
-        if (logEntry == LogEntryInfo.FIRST) {
-            return true
-        }
-
-        return log[index].term == term
+        return operations[index].term == term
     }
 
-    fun getOperationsBetween(from: Int, to: Int): List<Operation> {
-        return log.subList(from, to)
+    override fun getOperationsBetween(from: Int, to: Int): List<Operation> {
+        return if (from == operations.size)
+            emptyList()
+        else
+            operations.subList(from, to)
     }
 
-    fun get(index: Int): Operation {
-        return log[index]
+    override fun getOperationAt(index: Int): Operation {
+        return operations[index]
     }
 
-    fun size(): Int {
-        return log.size
+    override fun size(): Int {
+        return operations.size
+    }
+
+    override fun toDetailedString(): String {
+        return operations.toString()
     }
 
     override fun toString(): String {
-        return "OperationLog(log.size=${log.size}, last=${getLastEntry()})"
+        return "OperationLog(log.size=${operations.size}, last=${getLastEntry()})"
     }
 }

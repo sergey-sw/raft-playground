@@ -1,8 +1,14 @@
 # raft-playground
 
-This project is a showcase of [Raft](https://raft.github.io/) algorithm.
+This project is a showcase of [Raft](https://raft.github.io/) distributed consensus algorithm.
 
-Key entities in the codebase:
+#### Supported features:
+- ✅ Leader election
+- ❌ Log replication
+- ❌ Log snapshots
+- ❌ Cluster membership updates
+
+#### Key entities in the codebase:
 - `Config` contains basic algorithm settings
 - `Cluster` is just a set of nodes
 - `Node` represents a node in a cluster. 
