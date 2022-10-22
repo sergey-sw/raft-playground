@@ -4,7 +4,7 @@ import java.util.*
 
 object Time {
 
-    private const val SPEEDUP_FACTOR = 5.0 // speed up time if you're bored waiting
+    private const val SPEEDUP_FACTOR = 1.0 // speed up time if you're bored waiting
 
     fun now(): Timestamp {
         return Timestamp(System.currentTimeMillis())

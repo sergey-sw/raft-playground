@@ -3,6 +3,7 @@ package xyz.skywind.demo
 import xyz.skywind.raft.cluster.Cluster
 import xyz.skywind.raft.node.data.ClientAPI
 import xyz.skywind.raft.node.data.ClientAPI.*
+import xyz.skywind.raft.node.impl.DataNode
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
@@ -13,7 +14,7 @@ import java.util.logging.Level
 import kotlin.collections.HashMap
 import kotlin.system.exitProcess
 
-class LogReplicationDemoClient(val cluster: Cluster, id: Int) : Runnable {
+class LogReplicationDemoClient(val cluster: Cluster<DataNode>, id: Int) : Runnable {
 
     companion object {
         val OP_LOG = ConcurrentLinkedDeque<Map<String, Any>>()

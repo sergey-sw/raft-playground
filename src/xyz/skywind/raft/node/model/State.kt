@@ -9,7 +9,6 @@ data class State(
     val voteInfo: VoteInfo?,
     val role: Role,
     val leaderInfo: LeaderInfo?,
-    // TODO create value types for commit/applied index
     val commitIdx: Int, // index of the highest log entry known to be committed
     val appliedIdx: Int, // index of the highest log entry applied to the state machine
     val followers: Map<NodeID, FollowerInfo>

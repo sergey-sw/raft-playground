@@ -1,18 +1,17 @@
 package xyz.skywind.raft.cluster
 
-import xyz.skywind.raft.node.data.ClientAPI
-import xyz.skywind.raft.node.impl.DataNode
+import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Logging
 import java.util.logging.Level
 
-class Cluster(private val clusterConfig: ClusterConfig, private val networkConfig: NetworkConfig) {
+class Cluster<NodeType : Node>(private val clusterConfig: ClusterConfig, private val networkConfig: NetworkConfig) {
 
-    private val nodes = HashSet<DataNode>()
+    private val nodes = HashSet<NodeType>()
 
     val network = Network(networkConfig)
 
-    fun add(node: DataNode) {
+    fun add(node: NodeType) {
         for (n in nodes) {
             check(n.nodeID != node.nodeID) { "Cluster already contains node $node" }
         }
@@ -21,11 +20,11 @@ class Cluster(private val clusterConfig: ClusterConfig, private val networkConfi
         network.connect(node)
     }
 
-    fun getAnyNode(): ClientAPI {
+    fun getAnyNode(): NodeType {
         return nodes.random()
     }
 
-    fun getNode(nodeID: NodeID): ClientAPI {
+    fun getNode(nodeID: NodeID): NodeType {
         for (node in nodes)
             if (nodeID == node.nodeID)
                 return node
@@ -40,7 +39,10 @@ class Cluster(private val clusterConfig: ClusterConfig, private val networkConfi
         logger.log(Level.INFO, "Nodes: " + nodes.map { n -> n.nodeID })
         logger.log(Level.INFO, "Network message delay millis: " + networkConfig.messageDeliveryDelayMillis)
         logger.log(Level.INFO, "Network message loss probability: " + networkConfig.messageLossProbability)
-        logger.log(Level.INFO, "Network message duplication probability: " + networkConfig.messageDuplicationProbability)
+        logger.log(
+            Level.INFO,
+            "Network message duplication probability: " + networkConfig.messageDuplicationProbability
+        )
         logger.log(
             Level.INFO,
             "Raft election delay millis: " + clusterConfig.electionTimeoutMinMs + ".." + clusterConfig.electionTimeoutMaxMs

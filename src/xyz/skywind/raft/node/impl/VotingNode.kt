@@ -3,7 +3,7 @@ package xyz.skywind.raft.node.impl
 import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.Node
-import xyz.skywind.raft.node.data.Data
+import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.node.debug.LifecycleLogging
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Role
@@ -28,9 +28,6 @@ open class VotingNode(
     protected val logging = LifecycleLogging(nodeID)
 
     protected var state = States.initialState()
-
-    // TODO move all methods that require 'data' in VotingNode to template-methods and move 'data' to DataNode
-    protected val data = Data(nodeID)
 
     protected val timerTask = TimerTask(
         { state }, clusterConfig, logging,
@@ -201,7 +198,7 @@ open class VotingNode(
                 state = States.becomeCandidate(state, nodeID) // if there's no leader yet, let's promote ourselves
                 network.broadcast(
                     from = nodeID,
-                    request = VoteRequest(state.term, nodeID, data.getLastEntry()),
+                    request = VoteRequest(state.term, nodeID, getLastEntry()),
                     callback = { processVoteResponse(it) }
                 )
                 logging.promotedToCandidate(state)
@@ -240,13 +237,17 @@ open class VotingNode(
     protected open fun broadcastHeartbeat() {
         network.broadcast(
             from = nodeID,
-            requestBuilder = { AppendEntries(state, data.getLastEntry(), entries = listOf()) },
+            requestBuilder = { AppendEntries(state, getLastEntry(), entries = listOf()) },
             callback = { processResponse(it) }
         )
     }
 
     protected open fun handleEntries(request: AppendEntries): LastEntryIndex {
         return getLastEntryIndex()
+    }
+
+    protected open fun getLastEntry(): LogEntryInfo {
+        return LogEntryInfo(0, state.term) // dummy
     }
 
     protected open fun getLastEntryIndex(): LastEntryIndex {

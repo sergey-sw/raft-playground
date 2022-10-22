@@ -4,6 +4,8 @@ import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.data.ClientAPI
 import xyz.skywind.raft.node.data.ClientAPI.*
+import xyz.skywind.raft.node.data.Data
+import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.node.data.op.Operation
 import xyz.skywind.raft.node.data.op.RemoveValueOperation
 import xyz.skywind.raft.node.data.op.SetValueOperation
@@ -22,6 +24,8 @@ import java.util.concurrent.locks.ReentrantLock
 class DataNode(nodeID: NodeID, clusterConfig: ClusterConfig, network: Network) : VotingNode(nodeID, clusterConfig, network), ClientAPI {
 
     private val mutationLock = ReentrantLock() // blocks clients from running concurrent mutations
+
+    private val data = Data(nodeID)
 
     override fun get(key: String): GetOperationResponse {
         stateLock.lock()
@@ -129,6 +133,10 @@ class DataNode(nodeID: NodeID, clusterConfig: ClusterConfig, network: Network) :
         logging.onAfterAppendEntries(state, request, appliedOperationCount, data)
 
         return getLastEntryIndex()
+    }
+
+    override fun getLastEntry(): LogEntryInfo {
+        return data.getLastEntry()
     }
 
     override fun getLastEntryIndex(): Int {

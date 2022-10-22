@@ -28,12 +28,12 @@ object LogReplicationDemo {
         )
         val networkConfig = NetworkConfig(
             messageDeliveryDelayMillis = 5,
-            messageLossProbability = 0.0f,
-            messageDuplicationProbability = 0.0f,
+            messageLossProbability = 0.2f,
+            messageDuplicationProbability = 0.5f,
             partitionsEnabled = true
         )
 
-        val cluster = Cluster(clusterConfig, networkConfig)
+        val cluster = Cluster<DataNode>(clusterConfig, networkConfig)
         for (i in 1..clusterConfig.nodeCount) {
             cluster.add(
                 DataNode(NodeID("n$i"), clusterConfig, cluster.network)
