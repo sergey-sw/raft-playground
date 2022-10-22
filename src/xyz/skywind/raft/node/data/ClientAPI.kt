@@ -17,13 +17,13 @@ interface ClientAPI {
 
     // -------------------------------------------------------- //
 
+    sealed class ClientResponse(val success: Boolean, val leaderInfo: LeaderInfo?)
+
     class SetOperationResponse(success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
+
+    class RemoveOperationResponse(success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
 
     class GetOperationResponse(val data: String?, success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
 
     class GetAllOperationResponse(val data: Map<String, String>, success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
-
-    class RemoveOperationResponse(success: Boolean, leaderInfo: LeaderInfo?): ClientResponse(success, leaderInfo)
-
-    sealed class ClientResponse(val success: Boolean, val leaderInfo: LeaderInfo?)
 }

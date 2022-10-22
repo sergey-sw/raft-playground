@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node.model
 
-import xyz.skywind.raft.cluster.Config
+import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.tools.Time
 import xyz.skywind.tools.Timestamp
 
@@ -67,7 +67,7 @@ data class State(
         return voteInfo != null && voteInfo.votedFor == candidate
     }
 
-    fun needSelfPromotion(cfg: Config): Boolean {
+    fun needSelfPromotion(cfg: ClusterConfig): Boolean {
         if (role != Role.FOLLOWER) {
             return false
         }
@@ -87,7 +87,7 @@ data class State(
         return followers.keys
     }
 
-    fun isActiveLeader(clusterConfig: Config): Boolean {
+    fun isActiveLeader(clusterConfig: ClusterConfig): Boolean {
         if (role != Role.LEADER) return false
 
         val now = Time.now()

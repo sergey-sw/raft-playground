@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node.impl
 
-import xyz.skywind.raft.cluster.Config
+import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.node.debug.LifecycleLogging
 import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.node.model.State
@@ -15,7 +15,7 @@ import java.util.function.Supplier
 import java.util.logging.Level
 
 class TimerTask(private val stateGetter: Supplier<State>,
-                private val cfg: Config,
+                private val cfg: ClusterConfig,
                 private val logging: LifecycleLogging,
                 private val followerTask: Runnable,
                 private val candidateTask: Runnable,

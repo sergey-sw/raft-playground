@@ -10,7 +10,7 @@ import java.lang.Integer.min
 
 class Data(nodeID: NodeID) {
 
-    private val log: OpLog = OperationLog(nodeID)
+    private val log: OperationLog = InMemoryOperationLog(nodeID)
 
     private val kv = HashMap<String, String>()
 

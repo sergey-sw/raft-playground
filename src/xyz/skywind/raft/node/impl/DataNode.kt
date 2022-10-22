@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node.impl
 
-import xyz.skywind.raft.cluster.Config
+import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.data.ClientAPI
 import xyz.skywind.raft.node.data.ClientAPI.*
@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 
-class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(nodeID, config, network), ClientAPI {
+class DataNode(nodeID: NodeID, clusterConfig: ClusterConfig, network: Network) : VotingNode(nodeID, clusterConfig, network), ClientAPI {
 
     private val mutationLock = ReentrantLock() // blocks clients from running concurrent mutations
 
@@ -27,7 +27,7 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         stateLock.lock()
         try {
             return GetOperationResponse(
-                success = state.isActiveLeader(config),
+                success = state.isActiveLeader(clusterConfig),
                 data = data.getByKey(key),
                 leaderInfo = state.leaderInfo
             )
@@ -40,7 +40,7 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         stateLock.lock()
         try {
             return GetAllOperationResponse(
-                success = state.isActiveLeader(config),
+                success = state.isActiveLeader(clusterConfig),
                 data = data.getAll(),
                 leaderInfo = state.leaderInfo
             )
@@ -93,7 +93,7 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
             callback = { processResponse(it) }
         )
 
-        val isSuccess = config.isQuorum(1 + getOkResponseCount(futures))
+        val isSuccess = clusterConfig.isQuorum(1 + getOkResponseCount(futures))
         if (isSuccess) {
             data.append(operation)
             data.applyOperationsSince(state.commitIdx)

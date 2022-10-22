@@ -1,11 +1,11 @@
 package xyz.skywind.raft.cluster
 
 
-data class Config(val nodeCount: Int,
-                  val electionTimeoutMinMs: Long,
-                  val electionTimeoutMaxMs: Long,
-                  val heartbeatTimeoutMs: Long,
-                  val heartbeatTickPeriod: Long = heartbeatTimeoutMs / 4) {
+data class ClusterConfig(val nodeCount: Int,
+                         val electionTimeoutMinMs: Long,
+                         val electionTimeoutMaxMs: Long,
+                         val heartbeatTimeoutMs: Long,
+                         val heartbeatTickPeriod: Long = heartbeatTimeoutMs / 4) {
 
     companion object {
         const val MIN_EL_TIMEOUT = 10 // 10 milli seconds
@@ -33,6 +33,6 @@ data class Config(val nodeCount: Int,
     }
 
     fun isQuorum(votes: Int): Boolean {
-        return votes >= 1 + nodeCount / 2
+        return votes >= (nodeCount / 2) + 1
     }
 }

@@ -1,6 +1,6 @@
 package org.skywind.raft
 
-import xyz.skywind.raft.cluster.Config
+import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.node.model.State
@@ -338,7 +338,7 @@ object ModelTest {
     }
 
     private fun testSelfPromotion() {
-        val cfg = Config(
+        val cfg = ClusterConfig(
             nodeCount = 5,
             electionTimeoutMinMs = 150,
             electionTimeoutMaxMs = 300,
@@ -353,11 +353,11 @@ object ModelTest {
         testFollowerShouldNotPromoteIfVotedRecently(cfg)
     }
 
-    private fun testInitialStateShouldPromote(cfg: Config) {
+    private fun testInitialStateShouldPromote(cfg: ClusterConfig) {
         check(States.initialState().needSelfPromotion(cfg)) { "Should be able to promo in initial state" }
     }
 
-    private fun testOnlyFollowerShouldPromote(cfg: Config) {
+    private fun testOnlyFollowerShouldPromote(cfg: ClusterConfig) {
         val candidateState = State(
             term = Term(10),
             voteInfo = VoteInfo(NodeID("candidate"), Time.now()),
@@ -383,7 +383,7 @@ object ModelTest {
         check(!leaderState.needSelfPromotion(cfg)) { "Candidate should not promote" }
     }
 
-    private fun testFollowerShouldPromoteWithoutLeader(cfg: Config) {
+    private fun testFollowerShouldPromoteWithoutLeader(cfg: ClusterConfig) {
         val followerState = State(
             term = Term(10),
             voteInfo = null,
@@ -396,7 +396,7 @@ object ModelTest {
         check(followerState.needSelfPromotion(cfg))
     }
 
-    private fun testFollowerShouldNotPromoteWithActiveLeader(cfg: Config) {
+    private fun testFollowerShouldNotPromoteWithActiveLeader(cfg: ClusterConfig) {
         val followerState = State(
             term = Term(10),
             voteInfo = VoteInfo(NodeID("leader"), Time.now()),
@@ -409,7 +409,7 @@ object ModelTest {
         check(!followerState.needSelfPromotion(cfg))
     }
 
-    private fun testFollowerShouldPromoteWithStaleLeader(cfg: Config) {
+    private fun testFollowerShouldPromoteWithStaleLeader(cfg: ClusterConfig) {
         val followerState = State(
             term = Term(10),
             voteInfo = VoteInfo(NodeID("leader"), votedAt = Time.now() - 10 * cfg.heartbeatTimeoutMs),
@@ -422,7 +422,7 @@ object ModelTest {
         check(followerState.needSelfPromotion(cfg))
     }
 
-    private fun testFollowerShouldNotPromoteIfVotedRecently(cfg: Config) {
+    private fun testFollowerShouldNotPromoteIfVotedRecently(cfg: ClusterConfig) {
         val followerState = State(
             term = Term(10),
             voteInfo = VoteInfo(NodeID("candidate"), votedAt = Time.now() - cfg.electionTimeoutMinMs / 5),

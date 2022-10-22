@@ -7,7 +7,7 @@ import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.node.model.State
 import xyz.skywind.raft.node.model.State.*
 import xyz.skywind.raft.node.model.Term
-import xyz.skywind.raft.node.data.OpLog
+import xyz.skywind.raft.node.data.OperationLog
 import xyz.skywind.raft.node.impl.LastEntryIndex
 import xyz.skywind.raft.rpc.AppendEntries
 import xyz.skywind.raft.rpc.AppendEntriesResponse
@@ -21,8 +21,8 @@ object States {
             term = Term(0),
             voteInfo = null,
             role = Role.FOLLOWER,
-            commitIdx =  OpLog.START_IDX,
-            appliedIdx = OpLog.START_IDX,
+            commitIdx =  OperationLog.START_IDX,
+            appliedIdx = OperationLog.START_IDX,
             leaderInfo = null,
             followers = mapOf()
         )
@@ -163,7 +163,7 @@ object States {
     }
 
     fun voteFor(state: State, term: Term, candidate: NodeID): State {
-        RaftAssertions.verifyNodeDidNotVoteInTerm(state, term, candidate)
+        RaftAssertions.verifyNodeDidNotVoteInThisTerm(state, term, candidate)
         return State(state, term = term, voteInfo = VoteInfo(votedFor = candidate, votedAt = Time.now()))
     }
 

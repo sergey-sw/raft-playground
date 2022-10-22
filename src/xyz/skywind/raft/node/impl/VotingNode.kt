@@ -1,6 +1,6 @@
 package xyz.skywind.raft.node.impl
 
-import xyz.skywind.raft.cluster.Config
+import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.cluster.Network
 import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.data.Data
@@ -21,7 +21,7 @@ typealias LastEntryIndex = Int
 
 open class VotingNode(
     final override val nodeID: NodeID,
-    protected val config: Config,
+    protected val clusterConfig: ClusterConfig,
     protected val network: Network
 ) : Node {
 
@@ -33,7 +33,7 @@ open class VotingNode(
     protected val data = Data(nodeID)
 
     protected val timerTask = TimerTask(
-        { state }, config, logging,
+        { state }, clusterConfig, logging,
         followerTask = { maybeUpgradeFromFollowerToCandidate() },
         candidateTask = { stepDownFromCandidateToFollower() },
         leaderTask = { sendHeartbeat() }
@@ -122,7 +122,7 @@ open class VotingNode(
                     logging.candidateAcceptsVoteResponse(state, response)
 
                     state = States.addFollower(state, getLastEntryIndex(), response.voter)
-                    if (config.isQuorum(state.followers.size)) {
+                    if (clusterConfig.isQuorum(state.followers.size)) {
                         state = States.candidateBecomesLeader(state, getLastEntryIndex(), response)
                         logging.leaderAfterAcceptedVote(state)
                         sendHeartbeat()
@@ -197,7 +197,7 @@ open class VotingNode(
     private fun maybeUpgradeFromFollowerToCandidate() {
         stateLock.lock()
         try {
-            if (state.needSelfPromotion(config)) {
+            if (state.needSelfPromotion(clusterConfig)) {
                 state = States.becomeCandidate(state, nodeID) // if there's no leader yet, let's promote ourselves
                 network.broadcast(
                     from = nodeID,
