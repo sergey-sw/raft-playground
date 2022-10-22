@@ -8,13 +8,16 @@ import xyz.skywind.raft.node.debug.LifecycleLogging
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.rpc.AppendEntries
-import xyz.skywind.raft.rpc.HeartbeatResponse
+import xyz.skywind.raft.rpc.AppendEntriesResponse
 import xyz.skywind.raft.rpc.VoteRequest
 import xyz.skywind.raft.rpc.VoteResponse
 import xyz.skywind.raft.utils.RaftAssertions
 import xyz.skywind.raft.utils.States
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
+
+typealias LastEntryIndex = Int
 
 open class VotingNode(
     final override val nodeID: NodeID,
@@ -26,17 +29,19 @@ open class VotingNode(
 
     protected var state = States.initialState()
 
+    // TODO move all methods that require 'data' in VotingNode to template-methods and move 'data' to DataNode
     protected val data = Data(nodeID)
 
     protected val timerTask = TimerTask(
         { state }, config, logging,
-        { maybeUpgradeFromFollowerToCandidate() },
-        { stepDownFromCandidateToFollower() },
-        { sendHeartbeat() }
+        followerTask = { maybeUpgradeFromFollowerToCandidate() },
+        candidateTask = { stepDownFromCandidateToFollower() },
+        leaderTask = { sendHeartbeat() }
     )
 
     protected val stateLock = ReentrantLock()
     protected val appendEntriesResponseCondition: Condition = stateLock.newCondition()
+    protected val canHeartbeat = AtomicBoolean(true)
 
     override fun start() {
         logging.nodeStarted()
@@ -46,8 +51,21 @@ open class VotingNode(
     override fun process(req: VoteRequest): VoteResponse {
         stateLock.lock()
         try {
-            if (state.term > req.candidateTerm || !matchesCandidateLog(req)) {
+            if (state.term > req.candidateTerm) {
                 logging.rejectVoteRequest(state, req)
+                return VoteResponse(
+                    granted = false,
+                    requestTerm = req.candidateTerm,
+                    voter = nodeID,
+                    voterTerm = state.term
+                )
+            } else if (!matchesCandidateLog(req)) {
+                if (state.role == Role.LEADER && state.term < req.candidateTerm) {
+                    // if we get request with higher term, we'd better try re-election
+                    logging.onHigherTerm(state, req)
+                    state = States.stepDownAndTryWinAgain(state, req)
+                    timerTask.resetElectionTimeout()
+                }
                 return VoteResponse(
                     granted = false,
                     requestTerm = req.candidateTerm,
@@ -91,19 +109,21 @@ open class VotingNode(
             }
 
             when (state.role) {
-                Role.FOLLOWER -> logging.receivedVoteResponseInFollowerState(state, response)
+                Role.FOLLOWER -> {
+                    logging.receivedVoteResponseInFollowerState(state, response)
+                }
 
                 Role.LEADER -> {
-                    state = States.addFollower(state, data.getLastEntry(), response.voter)
+                    state = States.addFollower(state, getLastEntryIndex(), response.voter)
                     logging.addFollowerToLeader(state, response)
                 }
 
                 Role.CANDIDATE -> {
                     logging.candidateAcceptsVoteResponse(state, response)
 
-                    state = States.addFollower(state, data.getLastEntry(), response.voter)
+                    state = States.addFollower(state, getLastEntryIndex(), response.voter)
                     if (config.isQuorum(state.followers.size)) {
-                        state = States.candidateBecomesLeader(state, data.getLastEntry(), response)
+                        state = States.candidateBecomesLeader(state, getLastEntryIndex(), response)
                         logging.leaderAfterAcceptedVote(state)
                         sendHeartbeat()
                     } else {
@@ -116,12 +136,17 @@ open class VotingNode(
         }
     }
 
-    override fun process(req: AppendEntries): HeartbeatResponse {
+    override fun process(req: AppendEntries): AppendEntriesResponse {
         stateLock.lock()
         try {
             if (state.term > req.term || !matchesLeaderLog(req)) {
                 logging.onStrangeHeartbeat(state, req)
-                return HeartbeatResponse(ok = false, follower = nodeID, followerTerm = state.term)
+                return AppendEntriesResponse(
+                    ok = false,
+                    follower = nodeID,
+                    followerTerm = state.term,
+                    followerLastEntryIdx = getLastEntryIndex()
+                )
             }
 
             if (state.term == req.term && state.leaderInfo?.leader == req.leader) {
@@ -131,7 +156,7 @@ open class VotingNode(
                 logging.acceptedLeadership(req)
             }
 
-            return HeartbeatResponse(
+            return AppendEntriesResponse(
                 ok = true,
                 follower = nodeID,
                 followerTerm = state.term,
@@ -142,21 +167,23 @@ open class VotingNode(
         }
     }
 
-    protected fun processHeartbeatResponse(response: HeartbeatResponse) {
+    protected fun processResponse(response: AppendEntriesResponse) {
         stateLock.lock()
         try {
             if (state.role != Role.LEADER) return
 
             if (state.term == response.followerTerm) {
-                state = States.updateFollower(response.ok, state, response.followerLastEntryIdx, response.follower)
+                state = States.updateFollower(state, response.followerLastEntryIdx, response.follower)
+                if (!response.ok) {
+                    logging.onFollowerLogMismatch(response.follower, state.followers)
+                }
             } else if (state.term < response.followerTerm) {
-                logging.onFailedHeartbeat(state, response)
+                logging.onFailedAppendEntries(state, response)
                 state = States.stepDownToFollower(state, response)
                 timerTask.resetElectionTimeout()
             }
-
-            appendEntriesResponseCondition.signal()
         } finally {
+            appendEntriesResponseCondition.signal()
             stateLock.unlock()
         }
     }
@@ -196,11 +223,10 @@ open class VotingNode(
         }
     }
 
-
     private fun sendHeartbeat() {
         stateLock.lock()
         try {
-            if (state.role == Role.LEADER) {
+            if (state.role == Role.LEADER && canHeartbeat.get()) {
                 broadcastHeartbeat()
                 logging.onHeartbeatBroadcast(state)
             }
@@ -214,12 +240,16 @@ open class VotingNode(
     protected open fun broadcastHeartbeat() {
         network.broadcast(
             from = nodeID,
-            requestBuilder = { AppendEntries(state, data.getLastEntry(), listOf()) },
-            callback = { processHeartbeatResponse(it) }
+            requestBuilder = { AppendEntries(state, data.getLastEntry(), entries = listOf()) },
+            callback = { processResponse(it) }
         )
     }
 
-    protected open fun handleEntries(request: AppendEntries): Int {
+    protected open fun handleEntries(request: AppendEntries): LastEntryIndex {
+        return getLastEntryIndex()
+    }
+
+    protected open fun getLastEntryIndex(): LastEntryIndex {
         return 0
     }
 

@@ -4,6 +4,7 @@ import xyz.skywind.raft.cluster.Cluster
 import xyz.skywind.raft.cluster.Config
 import xyz.skywind.raft.node.impl.DataNode
 import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.tools.Time
 import java.util.concurrent.Executors
 
 object Demo {
@@ -12,9 +13,9 @@ object Demo {
     fun main(args: Array<String>) {
         val clusterConfig = Config(
                 nodeCount = 5,
-                electionTimeoutMinMs = 150,
-                electionTimeoutMaxMs = 300,
-                heartbeatTimeoutMs = 3_000
+                electionTimeoutMinMs = Time.millis(150),
+                electionTimeoutMaxMs = Time.millis(300),
+                heartbeatTimeoutMs = Time.millis(3_000)
         )
 
         val cluster = Cluster(clusterConfig)

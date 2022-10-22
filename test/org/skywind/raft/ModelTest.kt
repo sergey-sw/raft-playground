@@ -439,7 +439,7 @@ object ModelTest {
     private fun makeFollowers(vararg nodes: String): Map<NodeID, FollowerInfo> {
         val followers = HashMap<NodeID, FollowerInfo>()
         for (node in nodes) {
-            followers[NodeID(node)] = FollowerInfo(Time.now(), 0, 0)
+            followers[NodeID(node)] = FollowerInfo(heartbeatTs = Time.now(), nextIdx = 0)
         }
         return followers
     }

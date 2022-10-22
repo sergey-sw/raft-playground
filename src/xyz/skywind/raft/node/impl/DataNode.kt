@@ -10,10 +10,11 @@ import xyz.skywind.raft.node.data.op.SetValueOperation
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.rpc.AppendEntries
-import xyz.skywind.raft.rpc.HeartbeatResponse
+import xyz.skywind.raft.rpc.AppendEntriesResponse
 import xyz.skywind.raft.rpc.RpcUtils
 import xyz.skywind.raft.rpc.VoteRequest
 import xyz.skywind.raft.utils.States
+import xyz.skywind.tools.Time
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -26,7 +27,7 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         stateLock.lock()
         try {
             return GetOperationResponse(
-                success = (state.role == Role.LEADER),
+                success = state.isActiveLeader(config),
                 data = data.getByKey(key),
                 leaderInfo = state.leaderInfo
             )
@@ -39,7 +40,7 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         stateLock.lock()
         try {
             return GetAllOperationResponse(
-                success = (state.role == Role.LEADER),
+                success = state.isActiveLeader(config),
                 data = data.getAll(),
                 leaderInfo = state.leaderInfo
             )
@@ -83,28 +84,30 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
     }
 
     private fun execute(operation: Operation): Boolean {
+        canHeartbeat.set(false)
         logging.onBeforeAppendEntriesBroadcast(operation, data)
 
         val futures = network.broadcast(
             from = nodeID,
             requestBuilder = { buildAppendEntriesRequest(it, listOf(operation)) },
-            callback = { processHeartbeatResponse(it) }
+            callback = { processResponse(it) }
         )
 
         val isSuccess = config.isQuorum(1 + getOkResponseCount(futures))
         if (isSuccess) {
             data.append(operation)
-            state = States.incCommitIndex(state)
+            data.applyOperationsSince(state.commitIdx)
 
-            data.applyOperation(operation)
-            state = States.incAppliedIndex(state)
+            state = States.updateIndices(state, getLastEntryIndex())
 
             logging.onSuccessOperation(state, operation, data)
             timerTask.resetHeartbeatTimeout()
         } else {
+            state = States.rollbackFollowerIndices(state, getLastEntryIndex())
             logging.onFailedOperation(state, operation, data)
         }
 
+        canHeartbeat.set(true)
         return isSuccess
     }
 
@@ -112,11 +115,11 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         network.broadcast(
             from = nodeID,
             requestBuilder = { buildAppendEntriesRequest(it, listOf()) },
-            callback = { processHeartbeatResponse(it) }
+            callback = { processResponse(it) }
         )
     }
 
-    override fun handleEntries(request: AppendEntries): Int {
+    override fun handleEntries(request: AppendEntries): LastEntryIndex {
         data.append(request.lastLogEntryInfo, request.entries)
 
         val appliedOperationCount = data.maybeApplyEntries(request, state)
@@ -125,6 +128,10 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
 
         logging.onAfterAppendEntries(state, request, appliedOperationCount, data)
 
+        return getLastEntryIndex()
+    }
+
+    override fun getLastEntryIndex(): Int {
         return data.getLastEntry().index
     }
 
@@ -142,7 +149,6 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
         return data.isNotAheadOfEntry(request.prevLogEntryInfo)
     }
 
-    // TODO it sends prev operation as well
     private fun buildAppendEntriesRequest(follower: NodeID, operations: List<Operation>): AppendEntries {
         val followerInfo = state.followers[follower]
             ?: return AppendEntries(state, data.getLastEntry(), operations)
@@ -152,15 +158,15 @@ class DataNode(nodeID: NodeID, config: Config, network: Network) : VotingNode(no
 
         return AppendEntries(state, lastLogEntryInfo, newOperations).also {
             if (it.entries.size > operations.size) {
-                logging.onFollowerCatchingUp(follower, it.entries)
+                logging.onFollowerCatchingUp(follower, it.entries, followerInfo.nextIdx)
             }
         }
     }
 
-    private fun getOkResponseCount(futures: List<CompletableFuture<HeartbeatResponse?>>): Int {
+    private fun getOkResponseCount(futures: List<CompletableFuture<AppendEntriesResponse?>>): Int {
         var okResponseCount = -1
         while (okResponseCount == -1) {
-            appendEntriesResponseCondition.await(20, TimeUnit.MILLISECONDS)
+            appendEntriesResponseCondition.await(Time.millis(20), TimeUnit.MILLISECONDS)
             okResponseCount = RpcUtils.countSuccess(futures)
         }
         return okResponseCount

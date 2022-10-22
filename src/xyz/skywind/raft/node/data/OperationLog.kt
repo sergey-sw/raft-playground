@@ -1,15 +1,15 @@
 package xyz.skywind.raft.node.data
 
-import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.data.op.Operation
+import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Logging
 
-// TODO need to rework how we handle prev/last entries. Pointer ops looks messy on caller side.
 class OperationLog(nodeID: NodeID) : OpLog {
 
     private val logger = Logging.getLogger("OperationsLog-$nodeID")
 
     private val operations = ArrayList<Operation>()
+
     init {
         operations.add(Operation.FIRST)
     }
@@ -62,10 +62,37 @@ class OperationLog(nodeID: NodeID) : OpLog {
     }
 
     override fun toDetailedString(): String {
-        return operations.toString()
+        val size = operations.size
+
+        return if (size < 20) {
+            logToStr(operations)
+        } else {
+            logToStr(operations.subList(0, 10)) + " <...> " +
+                    logToStr(operations.subList(size - 10, size), startIdx = size - 10)
+        }
     }
 
     override fun toString(): String {
         return "OperationLog(log.size=${operations.size}, last=${getLastEntry()})"
+    }
+
+    private fun logToStr(ops: List<Operation>, startIdx: Int = 0): String {
+        val it: Iterator<Operation> = ops.iterator()
+        if (!it.hasNext()) return "[]"
+
+        val sb = StringBuilder()
+        sb.append('[')
+
+        var idx = startIdx
+
+        while (true) {
+            val e: Operation = it.next()
+            sb.append(idx.toString()).append("=")
+            idx++
+            sb.append(e)
+            if (!it.hasNext())
+                return sb.append(']').toString()
+            sb.append(',').append(' ')
+        }
     }
 }

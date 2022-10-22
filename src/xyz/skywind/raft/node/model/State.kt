@@ -19,8 +19,7 @@ data class State(
     data class VoteInfo(val votedFor: NodeID, val votedAt: Timestamp)
 
     // nextIdx: index of next log entry that should be sent to follower
-    // matchIdx: index of max entry that matches with leader
-    data class FollowerInfo(val heartbeatTs: Timestamp, val nextIdx: Int, val matchIdx: Int)
+    data class FollowerInfo(val heartbeatTs: Timestamp, val nextIdx: Int)
 
     // second constructor that accepts prev state for default values
     companion object {
@@ -86,6 +85,16 @@ data class State(
 
     fun followers(): Set<NodeID> {
         return followers.keys
+    }
+
+    fun isActiveLeader(clusterConfig: Config): Boolean {
+        if (role != Role.LEADER) return false
+
+        val now = Time.now()
+
+        return clusterConfig.isQuorum(
+            followers.values.count { f -> now - f.heartbeatTs < clusterConfig.heartbeatTimeoutMs }
+        )
     }
 
     fun lastResponseFromFollowers(): HashMap<NodeID, Long> {

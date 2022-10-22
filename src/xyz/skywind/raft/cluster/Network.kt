@@ -5,6 +5,7 @@ import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
+import xyz.skywind.tools.Time
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.function.Consumer
@@ -47,10 +48,10 @@ class Network {
         masks[node.nodeID] = 0
     }
 
-    fun broadcast(from: NodeID, requestBuilder: Function<NodeID, AppendEntries>, callback: Consumer<HeartbeatResponse>):
-            List<CompletableFuture<HeartbeatResponse?>> {
+    fun broadcast(from: NodeID, requestBuilder: Function<NodeID, AppendEntries>, callback: Consumer<AppendEntriesResponse>):
+            List<CompletableFuture<AppendEntriesResponse?>> {
 
-        val futures = ArrayList<CompletableFuture<HeartbeatResponse?>>()
+        val futures = ArrayList<CompletableFuture<AppendEntriesResponse?>>()
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
                 if (connected(from, node.nodeID)) { // check nodes are connected
@@ -74,9 +75,9 @@ class Network {
     private fun startNetworkPartitioner() {
         Thread {
             while (true) {
-                Thread.sleep(Delay.between(5_000, 8_000).toLong())
+                Thread.sleep(Time.millis(Delay.between(5_000, 8_000)))
                 randomPartition()
-                Thread.sleep(Delay.between(100, 10_000).toLong())
+                Thread.sleep(Time.millis(Delay.between(100, 10_000)))
                 connectAll()
             }
         }.start()
@@ -142,8 +143,8 @@ class Network {
         from: NodeID,
         node: Node,
         request: AppendEntries,
-        callback: Consumer<HeartbeatResponse>
-    ): CompletableFuture<HeartbeatResponse?> {
+        callback: Consumer<AppendEntriesResponse>
+    ): CompletableFuture<AppendEntriesResponse?> {
         return CompletableFuture.supplyAsync {
             if (random.nextDouble() < MESSAGE_LOSS_PROBABILITY) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
@@ -161,19 +162,19 @@ class Network {
         }.logErrorsTo(logger)
     }
 
-    private fun execute(node: Node, request: AppendEntries, callback: Consumer<HeartbeatResponse>): HeartbeatResponse {
-        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+    private fun execute(node: Node, request: AppendEntries, callback: Consumer<AppendEntriesResponse>): AppendEntriesResponse {
+        Thread.sleep(Time.millis(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS)))
         val response = node.process(request)
-        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        Thread.sleep(Time.millis(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS)))
         callback.accept(response)
 
         return response
     }
 
     private fun execute(node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
-        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        Thread.sleep(Time.millis(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS)))
         val response = node.process(request)
-        Thread.sleep(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS).toLong())
+        Thread.sleep(Time.millis(Delay.upTo(MESSAGE_DELIVERY_DELAY_MILLIS)))
         callback.accept(response)
     }
 }

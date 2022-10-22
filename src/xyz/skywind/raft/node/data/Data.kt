@@ -22,7 +22,11 @@ class Data(nodeID: NodeID) {
         return HashMap(kv)
     }
 
-    fun applyOperation(op: Operation) {
+    fun applyOperationsSince(commitIdx: Int) {
+        log.getOperationsBetween(commitIdx, log.size()).forEach { applyOperation(it) }
+    }
+
+    private fun applyOperation(op: Operation) {
         when (op) {
             is RemoveValueOperation -> applyRemove(op)
             is SetValueOperation -> applySet(op)

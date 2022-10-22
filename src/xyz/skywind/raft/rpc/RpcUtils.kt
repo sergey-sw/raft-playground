@@ -6,7 +6,7 @@ import java.util.concurrent.TimeoutException
 
 object RpcUtils {
 
-    fun countSuccess(futures: List<CompletableFuture<HeartbeatResponse?>>): Int {
+    fun countSuccess(futures: List<CompletableFuture<AppendEntriesResponse?>>): Int {
         return try {
             var count = 0
             for (future in futures) {

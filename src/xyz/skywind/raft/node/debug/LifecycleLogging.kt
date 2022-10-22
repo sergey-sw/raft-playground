@@ -33,6 +33,13 @@ class LifecycleLogging(private val nodeID: NodeID) {
         )
     }
 
+    fun onHigherTerm(state: State, msg: VoteRequest) {
+        log(
+            Level.INFO, "Stepping down to follower role in term ${state.term}: " +
+                    "received vote request for term ${msg.candidateTerm} from ${msg.candidate}"
+        )
+    }
+
     fun rejectVoteRequest(state: State, msg: VoteRequest) {
         log(
             Level.INFO, "Rejecting VoteRequest from ${msg.candidate} in term ${msg.candidateTerm}. " +
@@ -114,9 +121,10 @@ class LifecycleLogging(private val nodeID: NodeID) {
         )
     }
 
-    fun onFailedHeartbeat(state: State, response: HeartbeatResponse) {
+    fun onFailedAppendEntries(state: State, response: AppendEntriesResponse) {
         log(
-            Level.INFO, "Received heartbeat from ${response.follower} at term ${response.followerTerm}. " +
+            Level.INFO,
+            "Received response to AppendEntries from ${response.follower} at term ${response.followerTerm}. " +
                     "Current term is ${state.term}. Stepping down to ${Role.FOLLOWER}"
         )
     }
@@ -156,11 +164,24 @@ class LifecycleLogging(private val nodeID: NodeID) {
         }
     }
 
-    fun onFollowerCatchingUp(nodeID: NodeID, entries: List<Operation>) {
-        log(Level.INFO, "Sending ${entries.size} ops to follower $nodeID: $entries")
+    fun onFollowerCatchingUp(nodeID: NodeID, entries: List<Operation>, followerNextIndex: Int) {
+        val entriesToString: String =
+            if (entries.size < 20)
+                entries.toString()
+            else
+                entries.subList(0, 10).toString() + " <...> " + entries.subList(entries.size - 10, entries.size)
+
+        log(
+            Level.INFO,
+            "Sending ${entries.size} ops to follower $nodeID (nextIdx=$followerNextIndex): $entriesToString"
+        )
     }
 
     fun onLogMismatch(req: AppendEntries, opLog: String) {
         log(Level.WARNING, "Node log does not match leader's prev entry ${req.lastLogEntryInfo}. Log: $opLog")
+    }
+
+    fun onFollowerLogMismatch(follower: NodeID, followers: Map<NodeID, State.FollowerInfo>) {
+        log(Level.INFO, "Failed to send AppendEntries to $follower. Followers: $followers")
     }
 }

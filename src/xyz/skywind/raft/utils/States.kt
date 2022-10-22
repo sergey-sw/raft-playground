@@ -7,11 +7,12 @@ import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.node.model.State
 import xyz.skywind.raft.node.model.State.*
 import xyz.skywind.raft.node.model.Term
-import xyz.skywind.raft.node.data.LogEntryInfo
 import xyz.skywind.raft.node.data.OpLog
+import xyz.skywind.raft.node.impl.LastEntryIndex
 import xyz.skywind.raft.rpc.AppendEntries
-import xyz.skywind.raft.rpc.HeartbeatResponse
+import xyz.skywind.raft.rpc.AppendEntriesResponse
 import xyz.skywind.tools.Time
+import kotlin.math.min
 
 object States {
 
@@ -58,7 +59,7 @@ object States {
     fun fromAnyRoleToFollower(state: State, msg: AppendEntries): State {
         return State(
             term = msg.term,
-            voteInfo = VoteInfo(msg.leader, Time.now()),
+            voteInfo = state.voteInfo, // don't change vote afterwards
             role = Role.FOLLOWER,
             leaderInfo = LeaderInfo(msg.leader, Time.now()),
             commitIdx = state.commitIdx,
@@ -75,7 +76,7 @@ object States {
             leaderInfo = null,
             commitIdx = state.commitIdx,
             appliedIdx = state.appliedIdx,
-            followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), state.commitIdx, 0)))
+            followers = mapOf(Pair(nodeID, FollowerInfo(Time.now(), state.commitIdx)))
         )
     }
 
@@ -91,7 +92,7 @@ object States {
         )
     }
 
-    fun stepDownToFollower(state: State, response: HeartbeatResponse): State {
+    fun stepDownToFollower(state: State, response: AppendEntriesResponse): State {
         return State(
             term = response.followerTerm,
             voteInfo = null,
@@ -103,14 +104,26 @@ object States {
         )
     }
 
-    fun candidateBecomesLeader(state: State, prevLogEntry: LogEntryInfo, response: VoteResponse): State {
+    fun stepDownAndTryWinAgain(state: State, msg: VoteRequest): State {
+        return State(
+            term = msg.candidateTerm,
+            voteInfo = null,
+            role = Role.FOLLOWER,
+            leaderInfo = null,
+            commitIdx = state.commitIdx,
+            appliedIdx = state.appliedIdx,
+            followers = mapOf()
+        )
+    }
+
+    fun candidateBecomesLeader(state: State, lastLogEntryIdx: LastEntryIndex, response: VoteResponse): State {
         check(state.role == Role.CANDIDATE)
         check(state.term == response.requestTerm)
         checkNotNull(state.voteInfo) { "Expected to have self vote when receiving VoteResponse" }
 
         val followers = HashMap<NodeID, FollowerInfo>()
         for (f in state.followers) {
-            followers[f.key] = FollowerInfo(f.value.heartbeatTs, nextIdx = prevLogEntry.index + 1, matchIdx = 0)
+            followers[f.key] = FollowerInfo(f.value.heartbeatTs, nextIdx = lastLogEntryIdx + 1)
         }
 
         return State(
@@ -124,22 +137,29 @@ object States {
         )
     }
 
-    fun addFollower(state: State, prevLogEntry: LogEntryInfo, follower: NodeID): State {
-        return updateFollower(ok = true, state, prevLogEntry.index, follower)
+    fun addFollower(state: State, lastLogEntryIdx: LastEntryIndex, follower: NodeID): State {
+        return updateFollower(state, lastLogEntryIdx, follower)
     }
 
-    fun updateFollower(ok: Boolean, state: State, followerLastEntryIndex: Int, follower: NodeID): State {
+    fun updateFollower(state: State, followerLastEntryIndex: LastEntryIndex, follower: NodeID): State {
         val followers = HashMap(state.followers)
 
-        val prevFollowerInfo = followers[follower]
-        if (prevFollowerInfo != null) {
-            val nextFollowerIdx = if (ok) followerLastEntryIndex + 1 else prevFollowerInfo.nextIdx - 1
-            followers[follower] = FollowerInfo(Time.now(), nextFollowerIdx, prevFollowerInfo.matchIdx)
-        } else {
-            followers[follower] = FollowerInfo(Time.now(), nextIdx = followerLastEntryIndex + 1, matchIdx = 0)
-        }
+        followers[follower] = FollowerInfo(Time.now(), nextIdx = followerLastEntryIndex + 1)
 
         return State(state, followers = followers)
+    }
+
+    fun rollbackFollowerIndices(state: State, lastLeaderEntryIdx: LastEntryIndex): State {
+        val newFollowers = HashMap<NodeID, FollowerInfo>()
+        for (follower in state.followers) {
+            val info = follower.value
+            newFollowers[follower.key] = FollowerInfo(
+                heartbeatTs = info.heartbeatTs,
+                nextIdx = min(lastLeaderEntryIdx + 1, info.nextIdx)
+            )
+        }
+
+        return State(state, followers = newFollowers)
     }
 
     fun voteFor(state: State, term: Term, candidate: NodeID): State {
@@ -152,12 +172,12 @@ object States {
         return State(state, leader = LeaderInfo(state.leaderInfo.leader, Time.now()))
     }
 
-    fun incCommitIndex(state: State): State {
-        return State(state, commitIdx = state.commitIdx + 1)
-    }
-
-    fun incAppliedIndex(state: State): State {
-        return State(state, appliedIdx = state.appliedIdx + 1)
+    fun updateIndices(state: State, index: Int): State {
+        return State(
+            state,
+            commitIdx = index,
+            appliedIdx = index
+        )
     }
 
     fun incCommitAndAppliedIndices(state: State, cnt: Int): State {

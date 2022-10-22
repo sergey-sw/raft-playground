@@ -28,7 +28,7 @@ class TimerTask(private val stateGetter: Supplier<State>,
 
     fun start() {
         resetElectionTimeout()
-        executor.scheduleAtFixedRate(Tick(), 5, 5, TimeUnit.MILLISECONDS)
+        executor.scheduleAtFixedRate(Tick(), Time.millis(5000), Time.millis(5000), TimeUnit.NANOSECONDS)
     }
 
     fun resetElectionTimeout() {

@@ -2,11 +2,15 @@
 
 This project is a showcase of [Raft](https://raft.github.io/) distributed consensus algorithm.
 
-#### Supported features:
+#### Supported functional requirements:
 - ✅ Leader election
-- ❌ Log replication
-- ❌ Log snapshots
+- ✅ Log replication
 - ❌ Cluster membership updates
+
+#### Supported non-functional requirements:
+- ❌ Log snapshots
+- ❌ Persistent storage
+- ❌ Operations pipelining
 
 #### Key entities in the codebase:
 - `Config` contains basic algorithm settings

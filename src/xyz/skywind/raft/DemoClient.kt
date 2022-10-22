@@ -6,13 +6,13 @@ import xyz.skywind.raft.node.data.ClientAPI.*
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Delay
 import xyz.skywind.tools.Logging
+import xyz.skywind.tools.Time
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.logging.Level
 import kotlin.collections.HashMap
 import kotlin.system.exitProcess
 
-// TODO check log replication conflicts on unexpected leader changes
 class DemoClient(val cluster: Cluster, id: Int) : Runnable {
 
     companion object {
@@ -30,18 +30,25 @@ class DemoClient(val cluster: Cluster, id: Int) : Runnable {
 
     override fun run() {
         while (true) {
-            Thread.sleep(Delay.between(1000L, 2000L))
+            Thread.sleep(Time.millis(Delay.between(1000L, 2000L)))
 
-            val clientAPI =
-                if (lastKnownLeader != null)
-                    cluster.getNode(lastKnownLeader!!)
-                else
-                    cluster.getAnyNode()
-
-            execute(clientAPI, ops.random(), keys.random(), values.random(), canRetry = true)
+            execute(
+                clientAPI = getBackendNode(),
+                op = ops.random(),
+                key = keys.random(),
+                value = values.random(),
+                canRetry = true
+            )
 
             checkDataConsistency()
         }
+    }
+
+    private fun getBackendNode(): ClientAPI {
+        return if (lastKnownLeader != null)
+            cluster.getNode(lastKnownLeader!!)
+        else
+            cluster.getAnyNode()
     }
 
     private fun execute(clientAPI: ClientAPI, op: String, key: String, value: String, canRetry: Boolean) {
@@ -135,7 +142,7 @@ class DemoClient(val cluster: Cluster, id: Int) : Runnable {
     }
 
     private fun fail() {
-        Thread.sleep(5_000)
+        Thread.sleep(Time.millis(5_000))
         exitProcess(0)
     }
 }
