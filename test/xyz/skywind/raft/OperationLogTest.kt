@@ -1,4 +1,4 @@
-package org.skywind.raft
+package xyz.skywind.raft
 
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Term

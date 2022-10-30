@@ -1,4 +1,4 @@
-package org.skywind.raft
+package xyz.skywind.raft
 
 import xyz.skywind.raft.cluster.ClusterConfig
 import xyz.skywind.raft.node.model.NodeID
