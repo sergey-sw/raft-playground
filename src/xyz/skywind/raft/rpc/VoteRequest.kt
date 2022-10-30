@@ -1,6 +1,7 @@
 package xyz.skywind.raft.rpc
 
-import xyz.skywind.raft.node.NodeID
-import xyz.skywind.raft.node.Term
+import xyz.skywind.raft.node.data.LogEntryInfo
+import xyz.skywind.raft.node.model.NodeID
+import xyz.skywind.raft.node.model.Term
 
-data class VoteRequest(val candidateTerm: Term, val candidate: NodeID)
+data class VoteRequest(val candidateTerm: Term, val candidate: NodeID, val prevLogEntryInfo: LogEntryInfo)
