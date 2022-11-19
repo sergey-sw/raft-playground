@@ -28,8 +28,8 @@ object LogReplicationDemo {
         )
         val networkConfig = NetworkConfig(
             messageDeliveryDelayMillis = 5,
-            messageLossProbability = 0.2f,
-            messageDuplicationProbability = 0.5f,
+            messageLossProbability = 0.02f,
+            messageDuplicationProbability = 0.05f,
             partitionsEnabled = true
         )
 

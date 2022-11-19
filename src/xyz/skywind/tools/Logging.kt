@@ -34,10 +34,10 @@ object Logging {
         if (ENABLE_FILE_LOGGING) {
             try {
                 Files.createFile(Paths.get(LOGGING_FILE_NAME))
-                msgQueue.add(LogEntry("Logging to $LOGGING_FILE_NAME", "system", Level.SEVERE))
+                msgQueue.add(LogEntry("Logging to $LOGGING_FILE_NAME", "raft-cluster", Level.INFO))
             } catch (e: Exception) {
                 val msg = "Failed to setup file logging:\n" + e.stackTraceToString()
-                msgQueue.add(LogEntry(msg, "err", Level.SEVERE))
+                msgQueue.add(LogEntry(msg, "raft-cluster", Level.INFO))
                 ENABLE_FILE_LOGGING = false
             }
         }

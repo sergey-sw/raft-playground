@@ -1,7 +1,9 @@
 package xyz.skywind.raft.node.debug
 
+import xyz.skywind.raft.node.Node
 import xyz.skywind.raft.node.data.Data
 import xyz.skywind.raft.node.data.op.Operation
+import xyz.skywind.raft.node.impl.DataNode
 import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.raft.node.model.Role
 import xyz.skywind.raft.node.model.State
@@ -22,8 +24,11 @@ class LifecycleLogging(private val nodeID: NodeID) {
         log(Level.INFO, "Node $nodeID started")
     }
 
-    fun acceptedLeadership(msg: AppendEntries) {
-        log(Level.INFO, "Node $nodeID received $msg and accepted leadership of node ${msg.leader} in term ${msg.term}")
+    fun acceptedLeadership(node: Node, msg: AppendEntries) {
+        val json = if (node is DataNode) "$msg" else msg.toSimpleString()
+        log(
+            Level.INFO, "Node $nodeID received $json and accepted leadership of node ${msg.leader} in term ${msg.term}"
+        )
     }
 
     fun steppingDownToFollower(state: State, msg: VoteRequest) {

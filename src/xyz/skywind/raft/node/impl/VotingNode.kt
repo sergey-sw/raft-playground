@@ -150,7 +150,7 @@ open class VotingNode(
                 state = States.updateLeaderHeartbeatTime(state)
             } else {
                 state = States.fromAnyRoleToFollower(state, req)
-                logging.acceptedLeadership(req)
+                logging.acceptedLeadership(this, req)
             }
 
             return AppendEntriesResponse(

@@ -30,5 +30,9 @@ data class AppendEntries(
     override fun toString(): String {
         return "AppendEntries(leader=${leader}, prev=$lastLogEntryInfo, commitIndex=$commitIndex, entries=${entries})"
     }
+
+    fun toSimpleString(): String {
+        return "AppendEntries(leader=${leader})"
+    }
 }
 
