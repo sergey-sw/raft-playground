@@ -40,20 +40,52 @@ state is not persistent and communication does not use real network.
 
 <hr/>
 
-## How Raft works (simplified)
+## 🧑‍🎓 How Raft works [simplified] 👩‍🎓
 
-Node in a cluster can play of three `roles`: follower, candidate, leader.
-- At the beginning, all nodes are followers. Follower accepts leader updates. Follower may not have a leader yet. If
-follower does not receive updates from leader withing a `heartbeatTimeout`, it will decide that leader is down and promote 
+### Leadership
+
+Node in a cluster can play one of three roles: follower, candidate, leader.
+- At the beginning, all nodes are followers. From the name it may seem that the role of a follower implies the 
+presence of a leader, but this is optional. Node can be a follower and listen to a leader, 
+or it may be a follower and have no leader yet. If there's a leader in a cluster, follower receives leader updates. 
+If follower gets no updates from leader within a `heartbeat timeout`, it will decide that leader is down and promote 
 itself to a candidate role.
-- Candidate is a transitory role between follower and leader. When node becomes a candidate, it broadcasts a vote 
-request to all other nodes. If the majority of the cluster responds OK to this vote request, candidate will become a leader. 
-Otherwise, node will step back to a follower role.
-- Leader's job is to send heartbeats and updates to other nodes in a cluster. By design, there can be only one leader 
-in a cluster. If you somehow got two or more leaders — your raft implementation is incorrect.
+- Candidate is a transitory role between follower and leader. Follower promotes itself to a candidate role if it does 
+not hear from active leader or other candidates. When node becomes a candidate, it broadcasts a vote request to all other nodes. 
+If the majority of the cluster (`n/2 + 1` nodes) responds OK to this vote request, candidate will become a leader. 
+Otherwise, node will step back to a follower role and the process will repeat after some delay.
+- Leader sends heartbeats and updates to other nodes in a cluster. By design, there can be only one leader. 
+If there are two or more leaders somehow, then you may be 100% sure that the implementation of raft algorithm is incorrect.
 
-Another important concept of the algorithm is a `term`. It is a number that monotonically increases during the lifetime 
-of a cluster. 
+Election happens in a specific `term`. Each node starts in term `1`. Terms are incremented on new elections and help to 
+logically order the events. [Lamport clock](https://en.wikipedia.org/wiki/Lamport_timestamp) is a close analogue 
+to terms in Raft. Election may either finish with a new chosen leader or finish without a leader (no one got 
+the majority of the votes) — in this case there will be new election in a higher term.
+
+### Data updates
+
+All updates are handled by the leader. If a client sends an update to the node that is not the leader, 
+this node should respond with error or redirect.
+
+Leader maintains an ordered log of data operations and replicates it to the followers. For each follower there is 
+an index of the last replicated operation. When the leader receives an update, it appends the operation to its log and 
+broadcasts it to the followers. If the majority of the cluster responds OK to this update, leader applies this update 
+and responds OK to the client.
+
+To ensure the correctness of the operations order in the operations log, messages sent from leader to followers 
+contains not only the operation itself, but also the index and term of the last operation on the leader. 
+Follower appends the update only if its operations log matches leader's log (last operation is same). 
+Follower may have an outdated operations log due to different reasons. 
+In that case follower replies with error and sends the index of the last operation in its log.
+Leader will understand that this follower missed some previous updates and will send them since the provided index.
+
+The durability of the update is guaranteed by the nature of voting: since the majority of the cluster confirmed the 
+acceptance of the update, it's guaranteed that every further majority will contain a node that has this update.
+
+As stated earlier, leader applies the update to its local state right after it receives the confirmation from the 
+majority of the cluster. Followers, on the other hand, are always one step behind: they need to receive one more 
+update from the leader to ensure that the previous one was successfully committed to the log. Because of that, clients 
+should read data only from the leader if they need strict data consistency.
 
 <hr/>
 
@@ -300,11 +332,11 @@ This is enough for node `n2` to become a new leader:
 2022-11-19 18:09:59.606 raft-node-n2 INFO Sent leader heartbeat in term 15. Follower delays: {n4=2, n5=0}
 ```
 
-### Summary
+### Summary of the leader election demo
 
-In this simplified example you learned the basics of leader election in Raft. 
+In this simplified example you learned the basics of leader election process in Raft. 
 
-Nodes promote themselves from `follower` to `candidate` role and try to win the election if there's no leader yet.
+Nodes promote themselves from `follower` to `candidate` role and try to win the election.
 
 Each election has a `term`, which start from `1` and increase monotonically in each new round of election. 
 Terms represent the order of events or in some sense, time.
@@ -325,10 +357,10 @@ Eventually nodes will reach the same term agree on a new leader.
 
 #### Disclaimer
 
-This was a simplified example without any data operations in cluster. That's why nodes with higher term values 
+This was a simplified example without any data operations in a cluster. That's why nodes with higher term values 
 can easily win the election. Full version of the algorithm adds another requirement for the voting process: 
 node will decline a voting request if candidate's operations log is behind the node's operation log. 
-See more details in the Log replication demo.
+See more details in the log replication demo.
 
 <hr/>
 
