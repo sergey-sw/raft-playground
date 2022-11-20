@@ -11,8 +11,9 @@ import java.util.concurrent.CompletableFuture
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.logging.Level
+import kotlin.collections.HashMap
 
-class Network(private val networkConfig: NetworkConfig) {
+class Network(private val cfg: NetworkConfig) {
 
     private val nodes: MutableList<Node> = ArrayList()
 
@@ -24,8 +25,11 @@ class Network(private val networkConfig: NetworkConfig) {
 
     private val random = Random()
 
+    private fun isMessageLost(): Boolean = random.nextDouble() < cfg.messageLossProbability
+    private fun isMessageDuplicated(): Boolean = random.nextDouble() < cfg.messageDuplicationProbability
+
     fun start() {
-        if (networkConfig.partitionsEnabled) {
+        if (cfg.partitionsEnabled) {
             startNetworkPartitioner()
         }
     }
@@ -43,9 +47,7 @@ class Network(private val networkConfig: NetworkConfig) {
         from: NodeID,
         requestBuilder: Function<NodeID, AppendEntries>,
         callback: Consumer<AppendEntriesResponse>
-    ):
-            List<CompletableFuture<AppendEntriesResponse?>> {
-
+    ): List<CompletableFuture<AppendEntriesResponse?>> {
         val futures = ArrayList<CompletableFuture<AppendEntriesResponse?>>()
         for (node in nodes) {
             if (node.nodeID != from) { // don't broadcast to itself
@@ -120,14 +122,14 @@ class Network(private val networkConfig: NetworkConfig) {
 
     private fun sendVoteRequest(from: NodeID, node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
         CompletableFuture.runAsync {
-            if (random.nextDouble() < networkConfig.messageLossProbability) {
+            if (isMessageLost()) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
                 return@runAsync
             }
 
             execute(node, request, callback)
 
-            if (random.nextDouble() < networkConfig.messageDuplicationProbability) {
+            if (isMessageDuplicated()) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is duplicated")
                 execute(node, request, callback)
             }
@@ -141,14 +143,14 @@ class Network(private val networkConfig: NetworkConfig) {
         callback: Consumer<AppendEntriesResponse>
     ): CompletableFuture<AppendEntriesResponse?> {
         return CompletableFuture.supplyAsync {
-            if (random.nextDouble() < networkConfig.messageLossProbability) {
+            if (isMessageLost()) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is lost")
                 return@supplyAsync null
             }
 
             val response = execute(node, request, callback)
 
-            if (random.nextDouble() < networkConfig.messageDuplicationProbability) {
+            if (isMessageDuplicated()) {
                 logger.log(Level.WARNING, "Request $request from $from to ${node.nodeID} is duplicated")
                 execute(node, request, callback)
             }
@@ -157,23 +159,19 @@ class Network(private val networkConfig: NetworkConfig) {
         }.logErrorsTo(logger)
     }
 
-    private fun execute(
-        node: Node,
-        request: AppendEntries,
-        callback: Consumer<AppendEntriesResponse>
-    ): AppendEntriesResponse {
-        Thread.sleep(Time.millis(Delay.upTo(networkConfig.messageDeliveryDelayMillis)))
+    private fun execute(node: Node, request: AppendEntries, callback: Consumer<AppendEntriesResponse>): AppendEntriesResponse {
+        Thread.sleep(Time.millis(Delay.upTo(cfg.messageDeliveryDelayMillis)))
         val response = node.process(request)
-        Thread.sleep(Time.millis(Delay.upTo(networkConfig.messageDeliveryDelayMillis)))
+        Thread.sleep(Time.millis(Delay.upTo(cfg.messageDeliveryDelayMillis)))
         callback.accept(response)
 
         return response
     }
 
     private fun execute(node: Node, request: VoteRequest, callback: Consumer<VoteResponse>) {
-        Thread.sleep(Time.millis(Delay.upTo(networkConfig.messageDeliveryDelayMillis)))
+        Thread.sleep(Time.millis(Delay.upTo(cfg.messageDeliveryDelayMillis)))
         val response = node.process(request)
-        Thread.sleep(Time.millis(Delay.upTo(networkConfig.messageDeliveryDelayMillis)))
+        Thread.sleep(Time.millis(Delay.upTo(cfg.messageDeliveryDelayMillis)))
         callback.accept(response)
     }
 }

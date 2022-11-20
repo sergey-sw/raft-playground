@@ -5,26 +5,24 @@ import xyz.skywind.raft.node.model.NodeID
 import xyz.skywind.tools.Logging
 import java.util.logging.Level
 
-class Cluster<NodeType : Node>(private val clusterConfig: ClusterConfig, private val networkConfig: NetworkConfig) {
+class Cluster<N : Node>(private val clusterConfig: ClusterConfig, private val networkConfig: NetworkConfig) {
 
-    private val nodes = HashSet<NodeType>()
+    private val nodes = HashSet<N>()
 
     val network = Network(networkConfig)
 
-    fun add(node: NodeType) {
-        for (n in nodes) {
-            check(n.nodeID != node.nodeID) { "Cluster already contains node $node" }
-        }
+    fun add(node: N) {
+        nodes.forEach { n -> check(n.nodeID != node.nodeID) { "Cluster already contains node $node" } }
 
         nodes.add(node)
         network.connect(node)
     }
 
-    fun getAnyNode(): NodeType {
+    fun getAnyNode(): N {
         return nodes.random()
     }
 
-    fun getNode(nodeID: NodeID): NodeType {
+    fun getNode(nodeID: NodeID): N {
         for (node in nodes)
             if (nodeID == node.nodeID)
                 return node
