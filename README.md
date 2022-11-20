@@ -46,20 +46,20 @@ state is not persistent and communication does not use real network.
 
 Node in a cluster can play one of three roles: follower, candidate, leader.
 - At the beginning, all nodes are followers. From the name it may seem that the role of a follower implies the 
-presence of a leader, but this is optional. Node can be a follower and listen to a leader, 
-or it may be a follower and have no leader yet. If there's a leader in a cluster, follower receives leader updates. 
-If follower gets no updates from leader within a `heartbeat timeout`, it will decide that leader is down and promote 
+presence of the leader, but this is optional. Node can be a follower and listen to the leader, 
+or it may be a follower and have no leader yet. If there's the leader in the cluster then a follower will receive updates from him. 
+If a follower gets no updates from the leader within a `heartbeat timeout`, it will decide that the leader is down and promote 
 itself to a candidate role.
-- Candidate is a transitory role between follower and leader. Follower promotes itself to a candidate role if it does 
+- Candidate is a transitory role between the follower and the leader. A follower promotes itself to a candidate role if it does 
 not hear from active leader or other candidates. When node becomes a candidate, it broadcasts a vote request to all other nodes. 
-If the majority of the cluster (`n/2 + 1` nodes) responds OK to this vote request, candidate will become a leader. 
+If the majority of the cluster (`n/2 + 1` nodes) responds OK to this vote request, a candidate will become the leader. 
 Otherwise, node will step back to a follower role and the process will repeat after some delay.
-- Leader sends heartbeats and updates to other nodes in a cluster. By design, there can be only one leader. 
+- The leader sends heartbeats and updates to other nodes in a cluster. By design, there can be only one leader. 
 If there are two or more leaders somehow, then you may be 100% sure that the implementation of raft algorithm is incorrect.
 
 Election happens in a specific `term`. Each node starts in term `1`. Terms are incremented on new elections and help to 
 logically order the events. [Lamport clock](https://en.wikipedia.org/wiki/Lamport_timestamp) is a close analogue 
-to terms in Raft. Election may either finish with a new chosen leader or finish without a leader (no one got 
+to terms in Raft. Election may either finish with the new chosen leader or finish without the leader (no one got 
 the majority of the votes) — in this case there will be new election in a higher term.
 
 ### Data updates
@@ -67,22 +67,22 @@ the majority of the votes) — in this case there will be new election in a high
 All updates are handled by the leader. If a client sends an update to the node that is not the leader, 
 this node should respond with error or redirect.
 
-Leader maintains an ordered log of data operations and replicates it to the followers. For each follower there is 
-an index of the last replicated operation. When the leader receives an update, it appends the operation to its log and 
-broadcasts it to the followers. If the majority of the cluster responds OK to this update, leader applies this update 
+The leader maintains an ordered log of data operations and replicates it to the followers. The leader also maintains 
+the indices of the last replicated operation on each follower. When the leader receives an update, it appends the operation to its log and 
+broadcasts it to the followers. If the majority of the cluster responds OK to this update, the leader applies this update 
 and responds OK to the client.
 
-To ensure the correctness of the operations order in the operations log, messages sent from leader to followers 
+To ensure the correctness of the operations order in the operations log, messages sent from the leader to the followers 
 contains not only the operation itself, but also the index and term of the last operation on the leader. 
 Follower appends the update only if its operations log matches leader's log (last operation is same). 
 Follower may have an outdated operations log due to different reasons. 
-In that case follower replies with error and sends the index of the last operation in its log.
-Leader will understand that this follower missed some previous updates and will send them since the provided index.
+In that case a follower replies with error and sends the index of the last operation in its log.
+The leader will understand that this follower missed some previous updates and will send them since the provided index.
 
 The durability of the update is guaranteed by the nature of voting: since the majority of the cluster confirmed the 
 acceptance of the update, it's guaranteed that every further majority will contain a node that has this update.
 
-As stated earlier, leader applies the update to its local state right after it receives the confirmation from the 
+As stated earlier, the leader applies the update to its local state right after it receives the confirmation from the 
 majority of the cluster. Followers, on the other hand, are always one step behind: they need to receive one more 
 update from the leader to ensure that the previous one was successfully committed to the log. Because of that, clients 
 should read data only from the leader if they need strict data consistency.
