@@ -212,8 +212,8 @@ after voting. This is needed to preserve some time for the current election to f
 2022-11-19 18:09:44.734 raft-node-n4 INFO Will wait 203 ms before promoting self to candidate
 ```
 
-First two votes is enough for a candidate to become the leader: the majority for a `5` node cluster is `3`, 
-and `1` vote is already reserved, because a candidate votes for itself.
+Receiving first two votes is enough for a candidate to become a new leader: the majority for a `5` node cluster is `3`, 
+and `1` vote is already reserved, because a candidate voted for itself.
 
 ```
 2022-11-19 18:09:44.734 raft-node-n5 INFO Accepting VoteResponse{granted=true} in term 1 from follower n1
@@ -222,8 +222,8 @@ and `1` vote is already reserved, because a candidate votes for itself.
 2022-11-19 18:09:44.737 raft-node-n5 INFO Node n5 became leader in term 1 with followers: [n1, n4, n5]
 ```
 
-At this point of time other nodes do not yet know there's the new leader.
-It should broadcast a heartbeat to notify everyone that election succeeded.
+At this point of time other nodes do not yet know that there is a new leader in a cluster.
+Leader should broadcast a heartbeat to notify everyone that election succeeded.
 
 
 ```
@@ -268,7 +268,7 @@ The network was configured to have random partitions. They eventually occur:
 
 Nodes `n1`, `n2` and `n3` got isolated and can't reach any other node in the cluster. 
 Nodes `n4` and `n5` can communicate with each other.
-Because of the partitions, the leader's heartbeats can't reach and node except `node-4`.
+Because of the partitions, leader's (`node-5`) heartbeats can't reach any node except `node-4`.
 
 ```
 2022-11-19 18:09:50.276 raft-node-n5 INFO Sent leader heartbeat in term 1. Follower delays: {n1=745, n2=746, n3=744, n4=742}
@@ -277,8 +277,8 @@ Because of the partitions, the leader's heartbeats can't reach and node except `
 2022-11-19 18:09:52.526 raft-node-n5 INFO Sent leader heartbeat in term 1. Follower delays: {n1=2995, n2=2996, n3=2994, n4=742}
 ```
 
-So eventually nodes `n1`, `n2` and `n3` decide that the leader is down and try to promote themselves.
-Since they can not reach any other node in the cluster, their promotion attempts will always fail:
+Eventually nodes `n1`, `n2` and `n3` decide, that leader is down, so they try to promote themselves.
+Because of the partition, these nodes can not reach any other node in the cluster. Their promotion attempts will always fail:
 
 ```
 2022-11-19 18:09:52.746 raft-node-n3 INFO Became a candidate in term 2 and requested votes from others
@@ -289,7 +289,7 @@ Since they can not reach any other node in the cluster, their promotion attempts
 2022-11-19 18:09:53.126 raft-node-n2 INFO Didn't get enough votes, step down to FOLLOWER at term 2
 ```
 
-They will try again and again, and each new attempt increments the election term.
+They will try again and again. You may notice that each new attempt increments the election term.
 
 ```
 2022-11-19 18:09:54.836 raft-node-n3 INFO Became a candidate in term 6 and requested votes from others
@@ -300,19 +300,19 @@ They will try again and again, and each new attempt increments the election term
 2022-11-19 18:09:55.321 raft-node-n2 INFO Didn't get enough votes, step down to FOLLOWER at term 6
 ```
 
-Meanwhile, nodes `n4` and `n5` continue to live in the first term:
+Meanwhile, nodes `n4` and `n5` stay in the first term, because they did not see new elections:
 
 ```
 2022-11-19 18:09:55.526 raft-node-n5 INFO Sent leader heartbeat in term 1. Follower delays: {n1=5995, n2=5996, n3=5994, n4=746}
 ```
 
-Finally, the network partition is resolved and nodes need to agree on who is the new leader.
-There's a rule that a node should step down to the follower state if it sees a term higher that its own term.
+Finally, the network partition is resolved and nodes need to agree on who is the new `leader`.
+There's a rule that a node should step down to the `follower` state if it sees a term higher that its own term.
 Nodes `n4` and `n5` are in term `1`, while other nodes got ahead in their unsuccessful election attempts. 
-After they talk to each other, nodes `n4` and `n5` will understand they got behind and need to update.
+After they talk to each other, nodes `n4` and `n5` will understand they got behind and need to update their terms.
 
-In our example, `n2` was first to promote itself to a candidate after the network partition was resolved, 
-so it has good chances to become the leader:
+In our example, `n2` was first to promote itself to a `candidate` after the network partition was resolved, 
+so it has good chances to become the new `leader`:
 
 ```
 2022-11-19 18:09:59.596 raft-node-n2 INFO Became a candidate in term 15 and requested votes from others
@@ -330,7 +330,7 @@ As you may see, when current leader node `n5` gets a message from `n2` in term 1
 2022-11-19 18:09:59.601 raft-node-n5 INFO Will wait 150 ms before promoting self to candidate
 ```
 
-Finally, node `n2` becomes the new leader:
+Finally, node `n2` becomes the new `leader`:
 
 ```
 2022-11-19 18:09:59.606 raft-node-n2 INFO Accepting VoteResponse{granted=true} in term 15 from follower n5
@@ -340,7 +340,7 @@ Finally, node `n2` becomes the new leader:
 
 ### Summary of the leader election demo
 
-In this simplified example you learned the basics of the leader election process in Raft. 
+In this simplified example you learned the basics of the leader election process in Raft. Let's review it:
 
 Nodes promote themselves from `follower` to `candidate` role and try to win the election.
 
